@@ -654,8 +654,13 @@
                 predictions = [];
                 games.forEach(game => {
                     const pick = ai.analyzeGame(game);
-                    if (pick) predictions.push(pick);
+                    if (pick) {
+                        console.log('AI Pick:', pick);
+                        predictions.push(pick);
+                    }
                 });
+                
+                console.log(`Generated ${predictions.length} predictions`);
                 
                 // Sort by confidence
                 predictions.sort((a, b) => b.confidence - a.confidence);
@@ -663,6 +668,7 @@
                 // Take top 5
                 predictions = predictions.slice(0, 5);
                 
+                console.log('Top 5 predictions:', predictions);
                 displayPredictions();
                 
             } catch (error) {
@@ -682,57 +688,65 @@
                 return;
             }
             
-            container.innerHTML = predictions.map((p, i) => `
+            container.innerHTML = predictions.map((p, i) => {
+                // Ensure all properties exist
+                const betType = p.type || 'Moneyline';
+                const betDetails = p.betDetails || `${p.team} to Win`;
+                
+                return `
                 <div class="border-2 ${p.settled ? (p.won ? 'border-green-400 bg-green-50' : 'border-red-400 bg-red-50') : 'border-gray-200'} rounded-lg p-4 hover:border-purple-400 transition">
-                    <div class="flex items-start justify-between">
+                    <!-- Game Header -->
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="text-3xl">${p.settled ? (p.won ? '✅' : '❌') : (p.confidence > 70 ? '🤖' : '📊')}</span>
                         <div class="flex-1">
-                            <div class="flex items-center gap-2">
-                                <span class="text-2xl">${p.settled ? (p.won ? '✅' : '❌') : (p.confidence > 70 ? '🤖' : '📊')}</span>
-                                <div>
-                                    <div class="font-bold text-lg text-gray-900">
-                                        ${p.game}
-                                        ${p.settled ? `<span class="ml-2 text-sm ${p.won ? 'text-green-600' : 'text-red-600'}">(${p.finalScore})</span>` : ''}
-                                    </div>
-                                    <div class="text-sm text-gray-500">
-                                        ${new Date(p.gameTime).toLocaleString()}
-                                        ${p.settled ? `<span class="ml-2 font-bold ${p.won ? 'text-green-600' : 'text-red-600'}">${p.won ? 'WON' : 'LOST'}</span>` : '<span class="ml-2 text-orange-600">PENDING</span>'}
-                                    </div>
-                                </div>
+                            <div class="font-bold text-base text-gray-900">
+                                ${p.game}
                             </div>
-                            <div class="mt-3 space-y-2">
-                                <div class="bg-purple-100 rounded-lg p-2 border-2 border-purple-300">
-                                    <div class="text-xs text-purple-700 font-semibold">📌 ${p.type || 'Moneyline'} Bet</div>
-                                    <div class="font-bold text-lg text-purple-900">${p.betDetails || p.team}</div>
-                                </div>
-                                <div class="grid grid-cols-3 gap-2">
-                                    <div>
-                                        <div class="text-xs text-gray-500">Best Odds</div>
-                                        <div class="font-bold text-green-600">${p.odds > 0 ? '+' : ''}${p.odds}</div>
-                                    </div>
-                                    <div>
-                                        <div class="text-xs text-gray-500">Value</div>
-                                        <div class="font-bold text-orange-600">+${p.discrepancy}%</div>
-                                    </div>
-                                    <div>
-                                        <div class="text-xs text-gray-500">Win Prob</div>
-                                        <div class="font-bold text-blue-600">${p.implied}%</div>
-                                    </div>
-                                </div>
+                            <div class="text-xs text-gray-500">
+                                ${new Date(p.gameTime).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                                ${p.settled ? `<span class="ml-2 font-bold ${p.won ? 'text-green-600' : 'text-red-600'}">${p.won ? 'WON' : 'LOST'}</span>` : '<span class="ml-2 text-orange-600">PENDING</span>'}
                             </div>
                         </div>
-                        <div class="ml-4 text-right">
-                            <div class="text-xs text-gray-500">AI Confidence</div>
-                            <div class="text-3xl font-bold text-purple-600">${p.confidence.toFixed(0)}%</div>
-                            ${p.confidence > 70 ? '<div class="text-xs text-green-600 font-bold mt-1">✨ HIGH CONFIDENCE</div>' : ''}
+                        <div class="text-right">
+                            <div class="text-xs text-gray-400">Confidence</div>
+                            <div class="text-2xl font-bold text-purple-600">${p.confidence.toFixed(0)}%</div>
                         </div>
                     </div>
-                    <div class="mt-3 pt-3 border-t border-gray-200">
-                        <div class="text-xs text-gray-600">
-                            <strong>AI Analysis:</strong> Detected ${p.discrepancy}% odds advantage. Market inefficiency suggests value bet on ${p.betDetails || p.team}.
+                    
+                    ${p.settled && p.finalScore ? `
+                    <div class="mb-3 p-2 bg-gray-100 rounded text-center">
+                        <div class="text-xs text-gray-500">Final Score</div>
+                        <div class="font-bold text-sm text-gray-900">${p.finalScore}</div>
+                    </div>
+                    ` : ''}
+                    
+                    <!-- Bet Details - PROMINENT DISPLAY -->
+                    <div class="bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg p-3 mb-3">
+                        <div class="text-xs font-semibold opacity-90 mb-1">📌 ${betType.toUpperCase()}</div>
+                        <div class="text-xl font-bold">${betDetails}</div>
+                        <div class="text-sm opacity-90 mt-1">@ ${p.odds > 0 ? '+' : ''}${p.odds}</div>
+                    </div>
+                    
+                    <!-- Stats Grid -->
+                    <div class="grid grid-cols-3 gap-2 text-center">
+                        <div class="bg-green-50 rounded p-2">
+                            <div class="text-xs text-green-700">Best Odds</div>
+                            <div class="font-bold text-green-600">${p.odds > 0 ? '+' : ''}${p.odds}</div>
+                        </div>
+                        <div class="bg-orange-50 rounded p-2">
+                            <div class="text-xs text-orange-700">Value</div>
+                            <div class="font-bold text-orange-600">+${p.discrepancy}%</div>
+                        </div>
+                        <div class="bg-blue-50 rounded p-2">
+                            <div class="text-xs text-blue-700">Win Prob</div>
+                            <div class="font-bold text-blue-600">${p.implied}%</div>
                         </div>
                     </div>
+                    
+                    ${p.confidence > 70 ? '<div class="mt-2 text-center text-xs text-green-600 font-bold">✨ HIGH CONFIDENCE BET</div>' : ''}
                 </div>
-            `).join('');
+                `;
+            }).join('');
         }
         
         async function settleBets() {
