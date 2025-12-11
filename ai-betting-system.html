@@ -196,72 +196,204 @@
                 const homeTeam = game.home_team;
                 const awayTeam = game.away_team;
                 
-                // Collect all odds
+                // Collect all odds types
                 const h2hOdds = [];
                 const spreadOdds = [];
+                const totalOdds = [];
                 
                 game.bookmakers.forEach(book => {
                     const h2h = book.markets?.find(m => m.key === 'h2h');
                     const spread = book.markets?.find(m => m.key === 'spreads');
+                    const totals = book.markets?.find(m => m.key === 'totals');
                     
                     if (h2h) h2hOdds.push(h2h.outcomes);
                     if (spread) spreadOdds.push(spread.outcomes);
+                    if (totals) totalOdds.push(totals.outcomes);
                 });
                 
-                if (h2hOdds.length === 0) return null;
+                // Array to store all potential bets
+                const potentialBets = [];
                 
-                // Calculate average odds and find discrepancies
-                const avgHomeOdds = this.calculateAverage(h2hOdds.map(o => o.find(x => x.name === homeTeam)?.price || 0));
-                const avgAwayOdds = this.calculateAverage(h2hOdds.map(o => o.find(x => x.name === awayTeam)?.price || 0));
-                
-                // Find best odds (arbitrage opportunity)
-                const bestHomeOdds = Math.max(...h2hOdds.map(o => o.find(x => x.name === homeTeam)?.price || 0));
-                const bestAwayOdds = Math.max(...h2hOdds.map(o => o.find(x => x.name === awayTeam)?.price || 0));
-                
-                // Calculate discrepancy (value indicator)
-                const homeDiscrepancy = ((bestHomeOdds - avgHomeOdds) / avgHomeOdds) * 100;
-                const awayDiscrepancy = ((bestAwayOdds - avgAwayOdds) / avgAwayOdds) * 100;
-                
-                // Calculate implied probabilities
-                const homeImplied = this.oddsToProb(avgHomeOdds);
-                const awayImplied = this.oddsToProb(avgAwayOdds);
-                
-                // Apply AI learning weights
-                const homeScore = homeDiscrepancy * this.model.weights.oddsDiscrepancy + 
-                                 (5 * this.model.weights.homeAdvantage);
-                const awayScore = awayDiscrepancy * this.model.weights.oddsDiscrepancy;
-                
-                // Determine best bet
-                let pick = null;
-                if (homeScore > 2 && homeScore > awayScore) {
-                    pick = {
-                        team: homeTeam,
-                        opponent: awayTeam,
-                        odds: bestHomeOdds,
-                        avgOdds: avgHomeOdds,
-                        discrepancy: homeDiscrepancy.toFixed(2),
-                        confidence: Math.min(95, 50 + homeScore * 5),
-                        type: 'moneyline',
-                        implied: homeImplied
-                    };
-                } else if (awayScore > 2 && awayScore > homeScore) {
-                    pick = {
-                        team: awayTeam,
-                        opponent: homeTeam,
-                        odds: bestAwayOdds,
-                        avgOdds: avgAwayOdds,
-                        discrepancy: awayDiscrepancy.toFixed(2),
-                        confidence: Math.min(95, 50 + awayScore * 5),
-                        type: 'moneyline',
-                        implied: awayImplied
-                    };
+                // 1. ANALYZE MONEYLINE BETS
+                if (h2hOdds.length >= 2) {
+                    const avgHomeOdds = this.calculateAverage(h2hOdds.map(o => o.find(x => x.name === homeTeam)?.price || 0));
+                    const avgAwayOdds = this.calculateAverage(h2hOdds.map(o => o.find(x => x.name === awayTeam)?.price || 0));
+                    
+                    const bestHomeOdds = Math.max(...h2hOdds.map(o => o.find(x => x.name === homeTeam)?.price || 0));
+                    const bestAwayOdds = Math.max(...h2hOdds.map(o => o.find(x => x.name === awayTeam)?.price || 0));
+                    
+                    const homeDiscrepancy = ((bestHomeOdds - avgHomeOdds) / avgHomeOdds) * 100;
+                    const awayDiscrepancy = ((bestAwayOdds - avgAwayOdds) / avgAwayOdds) * 100;
+                    
+                    const homeImplied = this.oddsToProb(avgHomeOdds);
+                    const awayImplied = this.oddsToProb(avgAwayOdds);
+                    
+                    const homeScore = homeDiscrepancy * this.model.weights.oddsDiscrepancy + 
+                                     (5 * this.model.weights.homeAdvantage);
+                    const awayScore = awayDiscrepancy * this.model.weights.oddsDiscrepancy;
+                    
+                    if (homeScore > 2) {
+                        potentialBets.push({
+                            team: homeTeam,
+                            opponent: awayTeam,
+                            odds: bestHomeOdds,
+                            avgOdds: avgHomeOdds,
+                            discrepancy: homeDiscrepancy.toFixed(2),
+                            confidence: Math.min(95, 50 + homeScore * 5),
+                            type: 'Moneyline',
+                            betDetails: `${homeTeam} to Win`,
+                            implied: homeImplied,
+                            valueScore: homeScore
+                        });
+                    }
+                    
+                    if (awayScore > 2) {
+                        potentialBets.push({
+                            team: awayTeam,
+                            opponent: homeTeam,
+                            odds: bestAwayOdds,
+                            avgOdds: avgAwayOdds,
+                            discrepancy: awayDiscrepancy.toFixed(2),
+                            confidence: Math.min(95, 50 + awayScore * 5),
+                            type: 'Moneyline',
+                            betDetails: `${awayTeam} to Win`,
+                            implied: awayImplied,
+                            valueScore: awayScore
+                        });
+                    }
                 }
                 
-                if (pick) {
-                    pick.game = `${awayTeam} @ ${homeTeam}`;
-                    pick.gameTime = game.commence_time;
-                    pick.gameId = game.id;
+                // 2. ANALYZE SPREAD BETS
+                if (spreadOdds.length >= 2) {
+                    const homeSpreadData = [];
+                    const awaySpreadData = [];
+                    
+                    spreadOdds.forEach(outcomes => {
+                        const homeSpread = outcomes.find(o => o.name === homeTeam);
+                        const awaySpread = outcomes.find(o => o.name === awayTeam);
+                        if (homeSpread) homeSpreadData.push(homeSpread);
+                        if (awaySpread) awaySpreadData.push(awaySpread);
+                    });
+                    
+                    if (homeSpreadData.length > 0) {
+                        const avgHomeSpreadOdds = this.calculateAverage(homeSpreadData.map(d => d.price));
+                        const bestHomeSpreadOdds = Math.max(...homeSpreadData.map(d => d.price));
+                        const avgHomeSpreadLine = this.calculateAverage(homeSpreadData.map(d => d.point));
+                        const spreadDiscrepancy = ((bestHomeSpreadOdds - avgHomeSpreadOdds) / avgHomeSpreadOdds) * 100;
+                        const spreadScore = spreadDiscrepancy * this.model.weights.oddsDiscrepancy;
+                        
+                        if (spreadScore > 1.5 || bestHomeSpreadOdds > 100) {
+                            potentialBets.push({
+                                team: homeTeam,
+                                opponent: awayTeam,
+                                odds: bestHomeSpreadOdds,
+                                avgOdds: avgHomeSpreadOdds,
+                                discrepancy: spreadDiscrepancy.toFixed(2),
+                                confidence: Math.min(95, 45 + spreadScore * 6),
+                                type: 'Spread',
+                                betDetails: `${homeTeam} ${avgHomeSpreadLine > 0 ? '+' : ''}${avgHomeSpreadLine.toFixed(1)}`,
+                                implied: this.oddsToProb(avgHomeSpreadOdds),
+                                valueScore: spreadScore + 1,
+                                spreadLine: avgHomeSpreadLine
+                            });
+                        }
+                    }
+                    
+                    if (awaySpreadData.length > 0) {
+                        const avgAwaySpreadOdds = this.calculateAverage(awaySpreadData.map(d => d.price));
+                        const bestAwaySpreadOdds = Math.max(...awaySpreadData.map(d => d.price));
+                        const avgAwaySpreadLine = this.calculateAverage(awaySpreadData.map(d => d.point));
+                        const spreadDiscrepancy = ((bestAwaySpreadOdds - avgAwaySpreadOdds) / avgAwaySpreadOdds) * 100;
+                        const spreadScore = spreadDiscrepancy * this.model.weights.oddsDiscrepancy;
+                        
+                        if (spreadScore > 1.5 || bestAwaySpreadOdds > 100) {
+                            potentialBets.push({
+                                team: awayTeam,
+                                opponent: homeTeam,
+                                odds: bestAwaySpreadOdds,
+                                avgOdds: avgAwaySpreadOdds,
+                                discrepancy: spreadDiscrepancy.toFixed(2),
+                                confidence: Math.min(95, 45 + spreadScore * 6),
+                                type: 'Spread',
+                                betDetails: `${awayTeam} ${avgAwaySpreadLine > 0 ? '+' : ''}${avgAwaySpreadLine.toFixed(1)}`,
+                                implied: this.oddsToProb(avgAwaySpreadOdds),
+                                valueScore: spreadScore + 1,
+                                spreadLine: avgAwaySpreadLine
+                            });
+                        }
+                    }
                 }
+                
+                // 3. ANALYZE TOTALS (Over/Under)
+                if (totalOdds.length >= 2) {
+                    const overData = [];
+                    const underData = [];
+                    
+                    totalOdds.forEach(outcomes => {
+                        const over = outcomes.find(o => o.name === 'Over');
+                        const under = outcomes.find(o => o.name === 'Under');
+                        if (over) overData.push(over);
+                        if (under) underData.push(under);
+                    });
+                    
+                    if (overData.length > 0) {
+                        const avgOverOdds = this.calculateAverage(overData.map(d => d.price));
+                        const bestOverOdds = Math.max(...overData.map(d => d.price));
+                        const avgOverLine = this.calculateAverage(overData.map(d => d.point));
+                        const totalDiscrepancy = ((bestOverOdds - avgOverOdds) / avgOverOdds) * 100;
+                        const totalScore = totalDiscrepancy * this.model.weights.oddsDiscrepancy;
+                        
+                        if (totalScore > 1.5 || bestOverOdds > 100) {
+                            potentialBets.push({
+                                team: 'Over',
+                                opponent: `${homeTeam} vs ${awayTeam}`,
+                                odds: bestOverOdds,
+                                avgOdds: avgOverOdds,
+                                discrepancy: totalDiscrepancy.toFixed(2),
+                                confidence: Math.min(95, 45 + totalScore * 6),
+                                type: 'Total',
+                                betDetails: `Over ${avgOverLine.toFixed(1)}`,
+                                implied: this.oddsToProb(avgOverOdds),
+                                valueScore: totalScore,
+                                totalLine: avgOverLine
+                            });
+                        }
+                    }
+                    
+                    if (underData.length > 0) {
+                        const avgUnderOdds = this.calculateAverage(underData.map(d => d.price));
+                        const bestUnderOdds = Math.max(...underData.map(d => d.price));
+                        const avgUnderLine = this.calculateAverage(underData.map(d => d.point));
+                        const totalDiscrepancy = ((bestUnderOdds - avgUnderOdds) / avgUnderOdds) * 100;
+                        const totalScore = totalDiscrepancy * this.model.weights.oddsDiscrepancy;
+                        
+                        if (totalScore > 1.5 || bestUnderOdds > 100) {
+                            potentialBets.push({
+                                team: 'Under',
+                                opponent: `${homeTeam} vs ${awayTeam}`,
+                                odds: bestUnderOdds,
+                                avgOdds: avgUnderOdds,
+                                discrepancy: totalDiscrepancy.toFixed(2),
+                                confidence: Math.min(95, 45 + totalScore * 6),
+                                type: 'Total',
+                                betDetails: `Under ${avgUnderLine.toFixed(1)}`,
+                                implied: this.oddsToProb(avgUnderOdds),
+                                valueScore: totalScore,
+                                totalLine: avgUnderLine
+                            });
+                        }
+                    }
+                }
+                
+                // Pick the best bet based on value score
+                if (potentialBets.length === 0) return null;
+                
+                potentialBets.sort((a, b) => b.valueScore - a.valueScore);
+                const pick = potentialBets[0];
+                
+                pick.game = `${awayTeam} @ ${homeTeam}`;
+                pick.gameTime = game.commence_time;
+                pick.gameId = game.id;
                 
                 return pick;
             }
@@ -444,22 +576,24 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="mt-3 grid grid-cols-2 gap-3">
-                                <div>
-                                    <div class="text-xs text-gray-500">AI Pick</div>
-                                    <div class="font-bold text-purple-600">${p.team}</div>
+                            <div class="mt-3 space-y-2">
+                                <div class="bg-purple-100 rounded-lg p-2 border-2 border-purple-300">
+                                    <div class="text-xs text-purple-700 font-semibold">📌 ${p.type || 'Moneyline'} Bet</div>
+                                    <div class="font-bold text-lg text-purple-900">${p.betDetails || p.team}</div>
                                 </div>
-                                <div>
-                                    <div class="text-xs text-gray-500">Best Odds</div>
-                                    <div class="font-bold text-green-600">${p.odds > 0 ? '+' : ''}${p.odds}</div>
-                                </div>
-                                <div>
-                                    <div class="text-xs text-gray-500">Value Found</div>
-                                    <div class="font-bold text-orange-600">+${p.discrepancy}%</div>
-                                </div>
-                                <div>
-                                    <div class="text-xs text-gray-500">Win Probability</div>
-                                    <div class="font-bold text-blue-600">${p.implied}%</div>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <div>
+                                        <div class="text-xs text-gray-500">Best Odds</div>
+                                        <div class="font-bold text-green-600">${p.odds > 0 ? '+' : ''}${p.odds}</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs text-gray-500">Value</div>
+                                        <div class="font-bold text-orange-600">+${p.discrepancy}%</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs text-gray-500">Win Prob</div>
+                                        <div class="font-bold text-blue-600">${p.implied}%</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -471,7 +605,7 @@
                     </div>
                     <div class="mt-3 pt-3 border-t border-gray-200">
                         <div class="text-xs text-gray-600">
-                            <strong>AI Analysis:</strong> Detected ${p.discrepancy}% odds advantage. Market inefficiency suggests value bet on ${p.team}.
+                            <strong>AI Analysis:</strong> Detected ${p.discrepancy}% odds advantage. Market inefficiency suggests value bet on ${p.betDetails || p.team}.
                         </div>
                     </div>
                 </div>
@@ -560,31 +694,63 @@
                     addLog(`   AI Picked: ${pred.team} (${pred.confidence}% confidence)`, 'info');
                     
                     if (homeScore !== undefined && awayScore !== undefined) {
-                        // Determine winner (handle ties)
-                        let winner;
-                        let winnerLabel;
-                        if (homeScore > awayScore) {
-                            winner = score.home_team;
-                            winnerLabel = `${score.home_team} (Home) by ${homeScore - awayScore}`;
-                        } else if (awayScore > homeScore) {
-                            winner = score.away_team;
-                            winnerLabel = `${score.away_team} (Away) by ${awayScore - homeScore}`;
-                        } else {
-                            winner = 'TIE';
-                            winnerLabel = 'TIE';
+                        let won = false;
+                        let resultDetails = '';
+                        
+                        // Determine result based on bet type
+                        if (pred.type === 'Moneyline') {
+                            // Moneyline: Did the picked team win?
+                            let winner;
+                            if (homeScore > awayScore) {
+                                winner = score.home_team;
+                                resultDetails = `${score.home_team} won by ${homeScore - awayScore}`;
+                            } else if (awayScore > homeScore) {
+                                winner = score.away_team;
+                                resultDetails = `${score.away_team} won by ${awayScore - homeScore}`;
+                            } else {
+                                winner = 'TIE';
+                                resultDetails = 'Game ended in TIE';
+                            }
+                            won = winner === pred.team;
+                            addLog(`   🏆 Result: ${resultDetails}`, 'info');
+                            
+                        } else if (pred.type === 'Spread') {
+                            // Spread: Apply the spread line to determine winner
+                            const spreadLine = pred.spreadLine || 0;
+                            const isHomePick = pred.team === score.home_team;
+                            
+                            if (isHomePick) {
+                                const homeWithSpread = homeScore + spreadLine;
+                                won = homeWithSpread > awayScore;
+                                resultDetails = `${score.home_team} ${spreadLine > 0 ? '+' : ''}${spreadLine.toFixed(1)} → Adjusted: ${homeWithSpread.toFixed(1)} vs ${awayScore}`;
+                            } else {
+                                const awayWithSpread = awayScore + spreadLine;
+                                won = awayWithSpread > homeScore;
+                                resultDetails = `${score.away_team} ${spreadLine > 0 ? '+' : ''}${spreadLine.toFixed(1)} → Adjusted: ${awayWithSpread.toFixed(1)} vs ${homeScore}`;
+                            }
+                            addLog(`   📊 Spread Result: ${resultDetails}`, 'info');
+                            
+                        } else if (pred.type === 'Total') {
+                            // Total: Did the combined score go over/under the line?
+                            const totalLine = pred.totalLine || 0;
+                            const actualTotal = homeScore + awayScore;
+                            
+                            if (pred.team === 'Over') {
+                                won = actualTotal > totalLine;
+                                resultDetails = `Total: ${actualTotal} (Line: ${totalLine}) - ${won ? 'OVER' : 'UNDER'}`;
+                            } else if (pred.team === 'Under') {
+                                won = actualTotal < totalLine;
+                                resultDetails = `Total: ${actualTotal} (Line: ${totalLine}) - ${won ? 'UNDER' : 'OVER'}`;
+                            }
+                            addLog(`   🎯 Total Result: ${resultDetails}`, 'info');
                         }
                         
-                        addLog(`   🏆 Winner: ${winnerLabel}`, 'info');
-                        
-                        // Check if AI's pick won
-                        const won = winner === pred.team;
-                        
+                        // Log final result
                         if (won) {
-                            addLog(`   ✅ RESULT: AI WON!`, 'success');
+                            addLog(`   ✅ RESULT: AI WON! ${pred.betDetails}`, 'success');
                             wins++;
                         } else {
-                            addLog(`   ❌ RESULT: AI LOST`, 'error');
-                            addLog(`   Expected: ${pred.team} | Actual: ${winner}`, 'error');
+                            addLog(`   ❌ RESULT: AI LOST - ${pred.betDetails}`, 'error');
                             losses++;
                         }
                         
