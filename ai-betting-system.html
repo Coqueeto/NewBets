@@ -119,6 +119,12 @@
             </div>
         </div>
 
+        <!-- Settlement Log -->
+        <div id="settlementLog" class="glass-card p-6 hidden">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">📋 Settlement Log</h2>
+            <div id="logContent" class="space-y-1 text-sm font-mono max-h-96 overflow-y-auto bg-gray-900 p-4 rounded-lg"></div>
+        </div>
+
         <!-- AI Predictions -->
         <div class="glass-card p-6">
             <h2 class="text-xl font-bold text-gray-900 mb-4">🎯 AI Predictions</h2>
@@ -478,61 +484,149 @@
                 return;
             }
             
+            // Show settlement log
+            const logDiv = document.getElementById('settlementLog');
+            const logContent = document.getElementById('logContent');
+            logDiv.classList.remove('hidden');
+            logContent.innerHTML = '';
+            
+            function addLog(message, type = 'info') {
+                const colors = {
+                    'info': 'text-gray-300',
+                    'success': 'text-green-400',
+                    'error': 'text-red-400',
+                    'warning': 'text-yellow-400',
+                    'header': 'text-blue-400 font-bold'
+                };
+                const log = document.createElement('div');
+                log.className = colors[type];
+                log.textContent = message;
+                logContent.appendChild(log);
+                logContent.scrollTop = logContent.scrollHeight;
+                console.log(message);
+            }
+            
             const btn = document.getElementById('settleBtn');
             btn.disabled = true;
             btn.innerHTML = '<div class="text-lg">⏳ Settling...</div><div class="text-xs opacity-90">Getting results</div>';
             
             try {
+                addLog('🔍 Starting settlement process...', 'header');
+                addLog('', 'info');
+                addLog(`📡 Fetching scores from API for ${currentSport}...`, 'info');
+                
                 const response = await fetch(`https://api.the-odds-api.com/v4/sports/${currentSport}/scores?apiKey=${ODDS_API_KEY}&daysFrom=3`);
                 const scores = await response.json();
                 
-                let settled = 0;
-                console.log('Settling bets. Predictions:', predictions);
-                console.log('Scores received:', scores);
+                addLog(`✅ Received ${scores.length} game results from API`, 'success');
+                addLog(`📊 Checking ${predictions.length} predictions...`, 'info');
+                addLog('', 'info');
+                addLog('═══════════════════════════════════════', 'info');
                 
-                predictions.forEach(pred => {
+                let settled = 0;
+                let wins = 0;
+                let losses = 0;
+                
+                predictions.forEach((pred, index) => {
+                    addLog('', 'info');
+                    
+                    if (pred.settled) {
+                        addLog(`⏭️  Prediction #${index + 1}: Already settled`, 'warning');
+                        addLog(`   Game: ${pred.game}`, 'warning');
+                        return;
+                    }
+                    
                     const score = scores.find(s => s.id === pred.gameId);
-                    if (score && score.completed) {
-                        const homeScore = score.scores?.find(s => s.name === score.home_team)?.score;
-                        const awayScore = score.scores?.find(s => s.name === score.away_team)?.score;
-                        
-                        console.log(`Game: ${score.away_team} @ ${score.home_team}`);
-                        console.log(`Score: Away ${awayScore} - Home ${homeScore}`);
-                        console.log(`AI picked: ${pred.team}`);
-                        
-                        if (homeScore !== undefined && awayScore !== undefined) {
-                            // Determine winner (handle ties)
-                            let winner;
-                            if (homeScore > awayScore) {
-                                winner = score.home_team;
-                            } else if (awayScore > homeScore) {
-                                winner = score.away_team;
-                            } else {
-                                winner = 'TIE';
-                            }
-                            
-                            // Check if AI's pick won
-                            const won = winner === pred.team;
-                            
-                            console.log(`Winner: ${winner}, AI ${won ? 'WON' : 'LOST'}`);
-                            
-                            ai.recordResult(pred, won);
-                            pred.settled = true;
-                            pred.won = won;
-                            pred.finalScore = `${score.away_team} ${awayScore} - ${homeScore} ${score.home_team}`;
-                            settled++;
+                    
+                    if (!score) {
+                        addLog(`⏰ Prediction #${index + 1}: Game not found in results`, 'warning');
+                        addLog(`   Game: ${pred.game}`, 'warning');
+                        addLog(`   GameID: ${pred.gameId}`, 'warning');
+                        return;
+                    }
+                    
+                    if (!score.completed) {
+                        addLog(`⏰ Prediction #${index + 1}: Game not completed yet`, 'warning');
+                        addLog(`   Game: ${score.away_team} @ ${score.home_team}`, 'warning');
+                        addLog(`   Status: In Progress`, 'warning');
+                        return;
+                    }
+                    
+                    const homeScore = score.scores?.find(s => s.name === score.home_team)?.score;
+                    const awayScore = score.scores?.find(s => s.name === score.away_team)?.score;
+                    
+                    addLog(`🏈 Prediction #${index + 1}: ${score.away_team} @ ${score.home_team}`, 'header');
+                    addLog(`   Final Score: ${score.away_team} ${awayScore} - ${homeScore} ${score.home_team}`, 'info');
+                    addLog(`   AI Picked: ${pred.team} (${pred.confidence}% confidence)`, 'info');
+                    
+                    if (homeScore !== undefined && awayScore !== undefined) {
+                        // Determine winner (handle ties)
+                        let winner;
+                        let winnerLabel;
+                        if (homeScore > awayScore) {
+                            winner = score.home_team;
+                            winnerLabel = `${score.home_team} (Home) by ${homeScore - awayScore}`;
+                        } else if (awayScore > homeScore) {
+                            winner = score.away_team;
+                            winnerLabel = `${score.away_team} (Away) by ${awayScore - homeScore}`;
+                        } else {
+                            winner = 'TIE';
+                            winnerLabel = 'TIE';
                         }
+                        
+                        addLog(`   🏆 Winner: ${winnerLabel}`, 'info');
+                        
+                        // Check if AI's pick won
+                        const won = winner === pred.team;
+                        
+                        if (won) {
+                            addLog(`   ✅ RESULT: AI WON!`, 'success');
+                            wins++;
+                        } else {
+                            addLog(`   ❌ RESULT: AI LOST`, 'error');
+                            addLog(`   Expected: ${pred.team} | Actual: ${winner}`, 'error');
+                            losses++;
+                        }
+                        
+                        // Record to AI model
+                        ai.recordResult(pred, won);
+                        pred.settled = true;
+                        pred.won = won;
+                        pred.finalScore = `${score.away_team} ${awayScore} - ${homeScore} ${score.home_team}`;
+                        settled++;
+                        
+                        addLog(`   💾 Result recorded to AI model`, 'info');
+                        
+                    } else {
+                        addLog(`   ⚠️ Score data incomplete or missing`, 'error');
+                        addLog(`   Home Score: ${homeScore}, Away Score: ${awayScore}`, 'error');
                     }
                 });
                 
+                addLog('', 'info');
+                addLog('═══════════════════════════════════════', 'info');
+                addLog('📈 SETTLEMENT SUMMARY', 'header');
+                addLog(`   Total Bets Settled: ${settled}`, 'success');
+                addLog(`   Wins: ${wins} ✅`, 'success');
+                addLog(`   Losses: ${losses} ❌`, 'error');
+                
                 if (settled > 0) {
+                    const winRate = ((wins / settled) * 100).toFixed(1);
+                    const profitable = winRate >= 52.4;
+                    addLog(`   Win Rate: ${winRate}% ${profitable ? '🎯' : ''}`, profitable ? 'success' : 'warning');
+                    addLog(`   ${profitable ? '💰 Profitable!' : '📊 Keep learning...'}`, profitable ? 'success' : 'warning');
+                    
                     displayPredictions();
-                    alert(`✅ Settled ${settled} bets! AI is learning from results...`);
+                    alert(`✅ Settled ${settled} bets!\n\nWins: ${wins} ✅\nLosses: ${losses} ❌\nWin Rate: ${winRate}%\n\nAI is learning from results...`);
                 } else {
+                    addLog('   ⏰ No games finished yet', 'warning');
                     alert('⏰ Games not finished yet. Check back later!');
                 }
                 
             } catch (error) {
+                addLog('', 'info');
+                addLog(`❌ ERROR: ${error.message}`, 'error');
+                console.error('Settlement error:', error);
                 alert('Error fetching scores: ' + error.message);
             }
             
