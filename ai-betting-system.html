@@ -487,20 +487,39 @@
                 const scores = await response.json();
                 
                 let settled = 0;
+                console.log('Settling bets. Predictions:', predictions);
+                console.log('Scores received:', scores);
+                
                 predictions.forEach(pred => {
                     const score = scores.find(s => s.id === pred.gameId);
                     if (score && score.completed) {
                         const homeScore = score.scores?.find(s => s.name === score.home_team)?.score;
                         const awayScore = score.scores?.find(s => s.name === score.away_team)?.score;
                         
+                        console.log(`Game: ${score.away_team} @ ${score.home_team}`);
+                        console.log(`Score: Away ${awayScore} - Home ${homeScore}`);
+                        console.log(`AI picked: ${pred.team}`);
+                        
                         if (homeScore !== undefined && awayScore !== undefined) {
-                            const winner = homeScore > awayScore ? score.home_team : score.away_team;
+                            // Determine winner (handle ties)
+                            let winner;
+                            if (homeScore > awayScore) {
+                                winner = score.home_team;
+                            } else if (awayScore > homeScore) {
+                                winner = score.away_team;
+                            } else {
+                                winner = 'TIE';
+                            }
+                            
+                            // Check if AI's pick won
                             const won = winner === pred.team;
+                            
+                            console.log(`Winner: ${winner}, AI ${won ? 'WON' : 'LOST'}`);
                             
                             ai.recordResult(pred, won);
                             pred.settled = true;
                             pred.won = won;
-                            pred.finalScore = `${awayScore}-${homeScore}`;
+                            pred.finalScore = `${score.away_team} ${awayScore} - ${homeScore} ${score.home_team}`;
                             settled++;
                         }
                     }
