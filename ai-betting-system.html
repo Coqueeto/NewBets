@@ -58,9 +58,9 @@
                 <div class="text-xs text-gray-400 mt-1">AI accuracy</div>
             </div>
             <div class="glass-card p-4">
-                <div class="text-sm text-gray-500">AI Confidence</div>
-                <div class="text-2xl font-bold text-purple-600" id="confidence">0%</div>
-                <div class="text-xs text-gray-400 mt-1">Model certainty</div>
+                <div class="text-sm text-gray-500">Best Bet Type</div>
+                <div class="text-xl font-bold text-purple-600" id="confidence">Learning...</div>
+                <div class="text-xs text-gray-400 mt-1">Top performer</div>
             </div>
             <div class="glass-card p-4">
                 <div class="text-sm text-gray-500">Learning Cycles</div>
@@ -164,12 +164,36 @@
                 const saved = localStorage.getItem('bettingAI_model');
                 if (saved) {
                     this.model = JSON.parse(saved);
+                    // Ensure new properties exist for older models
+                    if (!this.model.betTypePerformance) {
+                        this.model.betTypePerformance = {
+                            Moneyline: { wins: 0, losses: 0, total: 0, avgConfidence: 0 },
+                            Spread: { wins: 0, losses: 0, total: 0, avgConfidence: 0 },
+                            Total: { wins: 0, losses: 0, total: 0, avgConfidence: 0 }
+                        };
+                    }
+                    if (!this.model.confidenceRanges) {
+                        this.model.confidenceRanges = {};
+                    }
+                    if (!this.model.weights.betTypePreference) {
+                        this.model.weights.betTypePreference = {
+                            Moneyline: 1.0,
+                            Spread: 1.0,
+                            Total: 1.0
+                        };
+                    }
                 } else {
                     this.model = {
                         totalBets: 0,
                         wins: 0,
                         losses: 0,
                         learningCycles: 0,
+                        betTypePerformance: {
+                            Moneyline: { wins: 0, losses: 0, total: 0, avgConfidence: 0 },
+                            Spread: { wins: 0, losses: 0, total: 0, avgConfidence: 0 },
+                            Total: { wins: 0, losses: 0, total: 0, avgConfidence: 0 }
+                        },
+                        confidenceRanges: {},
                         patterns: {
                             spreadSuccess: { over: 0, under: 0, total: 0 },
                             moneylineSuccess: { favorite: 0, underdog: 0, total: 0 },
@@ -179,7 +203,12 @@
                         weights: {
                             oddsDiscrepancy: 1.0,
                             homeAdvantage: 0.3,
-                            marketEfficiency: 0.5
+                            marketEfficiency: 0.5,
+                            betTypePreference: {
+                                Moneyline: 1.0,
+                                Spread: 1.0,
+                                Total: 1.0
+                            }
                         }
                     };
                 }
@@ -385,10 +414,28 @@
                     }
                 }
                 
-                // Pick the best bet based on value score
+                // Pick the best bet based on value score AND learned preferences
                 if (potentialBets.length === 0) return null;
                 
-                potentialBets.sort((a, b) => b.valueScore - a.valueScore);
+                // Apply learned bet type preferences to adjust scores
+                potentialBets.forEach(bet => {
+                    const typePreference = this.model.weights.betTypePreference[bet.type] || 1.0;
+                    bet.adjustedScore = bet.valueScore * typePreference;
+                    
+                    // Boost confidence based on historical performance
+                    const typePerf = this.model.betTypePerformance[bet.type];
+                    if (typePerf && typePerf.total > 5) {
+                        const winRate = typePerf.wins / typePerf.total;
+                        if (winRate > 0.55) {
+                            bet.confidence = Math.min(95, bet.confidence * 1.1);
+                        } else if (winRate < 0.45) {
+                            bet.confidence = Math.max(40, bet.confidence * 0.9);
+                        }
+                    }
+                });
+                
+                // Sort by adjusted score (value * learned preference)
+                potentialBets.sort((a, b) => b.adjustedScore - a.adjustedScore);
                 const pick = potentialBets[0];
                 
                 pick.game = `${awayTeam} @ ${homeTeam}`;
@@ -415,12 +462,29 @@
                 this.model.totalBets++;
                 if (won) {
                     this.model.wins++;
-                    if (prediction.type === 'moneyline') {
-                        this.model.patterns.moneylineSuccess.total++;
-                    }
                 } else {
                     this.model.losses++;
                 }
+                
+                // Track performance by bet type
+                const betType = prediction.type || 'Moneyline';
+                if (!this.model.betTypePerformance[betType]) {
+                    this.model.betTypePerformance[betType] = { wins: 0, losses: 0, total: 0, avgConfidence: 0 };
+                }
+                this.model.betTypePerformance[betType].total++;
+                if (won) {
+                    this.model.betTypePerformance[betType].wins++;
+                } else {
+                    this.model.betTypePerformance[betType].losses++;
+                }
+                
+                // Track confidence level performance
+                const confidenceRange = Math.floor(prediction.confidence / 10) * 10;
+                if (!this.model.confidenceRanges[confidenceRange]) {
+                    this.model.confidenceRanges[confidenceRange] = { wins: 0, total: 0 };
+                }
+                this.model.confidenceRanges[confidenceRange].total++;
+                if (won) this.model.confidenceRanges[confidenceRange].wins++;
                 
                 // Update team performance tracking
                 const team = prediction.team;
@@ -436,7 +500,7 @@
             learn() {
                 this.model.learningCycles++;
                 
-                // Adjust weights based on success rates
+                // Adjust weights based on overall success rates
                 const winRate = this.model.wins / this.model.totalBets;
                 
                 if (winRate < 0.45) {
@@ -448,6 +512,40 @@
                     this.model.weights.oddsDiscrepancy *= 0.98;
                 }
                 
+                // Adjust bet type preferences based on performance
+                ['Moneyline', 'Spread', 'Total'].forEach(betType => {
+                    const perf = this.model.betTypePerformance[betType];
+                    if (perf && perf.total >= 5) {
+                        const typeWinRate = perf.wins / perf.total;
+                        
+                        if (typeWinRate > 0.55) {
+                            // This bet type is performing well - increase preference
+                            this.model.weights.betTypePreference[betType] = Math.min(1.5, 
+                                this.model.weights.betTypePreference[betType] * 1.05);
+                        } else if (typeWinRate < 0.45) {
+                            // This bet type is underperforming - decrease preference
+                            this.model.weights.betTypePreference[betType] = Math.max(0.5, 
+                                this.model.weights.betTypePreference[betType] * 0.95);
+                        }
+                    }
+                });
+                
+                // Adjust confidence threshold based on confidence range performance
+                let highConfidencePerformance = 0;
+                let lowConfidencePerformance = 0;
+                
+                Object.keys(this.model.confidenceRanges).forEach(range => {
+                    const rangeData = this.model.confidenceRanges[range];
+                    if (rangeData.total >= 3) {
+                        const rangeWinRate = rangeData.wins / rangeData.total;
+                        if (parseInt(range) >= 70) {
+                            highConfidencePerformance = rangeWinRate;
+                        } else if (parseInt(range) <= 50) {
+                            lowConfidencePerformance = rangeWinRate;
+                        }
+                    }
+                });
+                
                 this.saveModel();
                 
                 return this.generateInsights();
@@ -457,7 +555,7 @@
                 const winRate = ((this.model.wins / this.model.totalBets) * 100).toFixed(1);
                 const insights = [];
                 
-                insights.push(`**Win Rate**: ${winRate}% (${this.model.wins} wins, ${this.model.losses} losses)`);
+                insights.push(`**Overall Win Rate**: ${winRate}% (${this.model.wins} wins, ${this.model.losses} losses)`);
                 
                 if (this.model.totalBets > 10) {
                     if (winRate > 55) {
@@ -467,7 +565,32 @@
                     }
                 }
                 
-                insights.push(`**Current Strategy**: Focusing on odds discrepancies (weight: ${this.model.weights.oddsDiscrepancy.toFixed(2)})`);
+                // Bet type performance breakdown
+                insights.push(`\n**📊 Bet Type Performance:**`);
+                ['Moneyline', 'Spread', 'Total'].forEach(betType => {
+                    const perf = this.model.betTypePerformance[betType];
+                    if (perf && perf.total > 0) {
+                        const typeWinRate = ((perf.wins / perf.total) * 100).toFixed(1);
+                        const preference = (this.model.weights.betTypePreference[betType] * 100).toFixed(0);
+                        const emoji = typeWinRate >= 55 ? '🔥' : typeWinRate >= 50 ? '✅' : typeWinRate >= 45 ? '⚠️' : '❌';
+                        insights.push(`  ${emoji} **${betType}**: ${typeWinRate}% (${perf.wins}/${perf.total}) - Preference: ${preference}%`);
+                    }
+                });
+                
+                insights.push(`\n**Current Strategy**: Focusing on odds discrepancies (weight: ${this.model.weights.oddsDiscrepancy.toFixed(2)})`);
+                
+                // Confidence calibration
+                const confRanges = Object.keys(this.model.confidenceRanges).sort((a, b) => b - a);
+                if (confRanges.length > 0) {
+                    insights.push(`\n**🎯 Confidence Calibration:**`);
+                    confRanges.forEach(range => {
+                        const data = this.model.confidenceRanges[range];
+                        if (data.total >= 3) {
+                            const actualWinRate = ((data.wins / data.total) * 100).toFixed(1);
+                            insights.push(`  ${range}-${parseInt(range) + 9}% confidence → ${actualWinRate}% actual (${data.wins}/${data.total})`);
+                        }
+                    });
+                }
                 
                 // Top performing teams
                 const topTeams = Object.entries(this.model.patterns.teamPerformance)
@@ -819,11 +942,26 @@
         }
         
         function updateStats() {
-            document.getElementById('totalBets').textContent = ai.model.totalBets;
-            document.getElementById('winRate').textContent = ai.model.totalBets > 0 ? 
-                ((ai.model.wins / ai.model.totalBets) * 100).toFixed(1) + '%' : '0%';
-            document.getElementById('confidence').textContent = 
-                (Math.min(95, 50 + (ai.model.totalBets * 2))).toFixed(0) + '%';
+            const totalBets = ai.model.totalBets;
+            const winRate = totalBets > 0 ? ((ai.model.wins / totalBets) * 100).toFixed(1) : '0';
+            
+            // Calculate best bet type
+            let bestBetType = 'Learning...';
+            let bestWinRate = 0;
+            ['Moneyline', 'Spread', 'Total'].forEach(type => {
+                const perf = ai.model.betTypePerformance[type];
+                if (perf && perf.total >= 3) {
+                    const typeRate = (perf.wins / perf.total) * 100;
+                    if (typeRate > bestWinRate) {
+                        bestWinRate = typeRate;
+                        bestBetType = `${type} (${typeRate.toFixed(1)}%)`;
+                    }
+                }
+            });
+            
+            document.getElementById('totalBets').textContent = totalBets;
+            document.getElementById('winRate').textContent = winRate + '%';
+            document.getElementById('confidence').textContent = bestBetType;
             document.getElementById('cycles').textContent = ai.model.learningCycles;
         }
         
