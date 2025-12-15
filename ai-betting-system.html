@@ -730,6 +730,15 @@
                 const newPredictions = [];
                 const existingGameIds = new Set(predictions.map(p => p.gameId));
                 
+                // Track existing ML bets by team to prevent contradictions
+                const existingMLTeams = new Map();
+                predictions.forEach(p => {
+                    if (p.type === 'Moneyline') {
+                        // Store the team and opponent for this ML bet
+                        existingMLTeams.set(p.team, p.opponent);
+                    }
+                });
+                
                 for (const sport of sports) {
                     console.log(`Analyzing ${sport.name}...`);
                     
@@ -743,7 +752,7 @@
                         console.log(`${sport.name}: ${games.length} games`);
                         
                         games.forEach(game => {
-                            // Skip if we already have a prediction for this game
+                            // Skip if we already have any prediction for this game
                             if (existingGameIds.has(game.id)) {
                                 console.log(`Skipping ${game.id} - already have prediction`);
                                 return;
@@ -751,6 +760,19 @@
                             
                             const pick = ai.analyzeGame(game);
                             if (pick) {
+                                // Check if this is a ML bet that contradicts an existing ML bet
+                                if (pick.type === 'Moneyline') {
+                                    // Check if we already have a ML bet for either team in this matchup
+                                    if (existingMLTeams.has(pick.team)) {
+                                        console.log(`⚠️ Already have ML bet for ${pick.team} - keeping original pick`);
+                                        return;
+                                    }
+                                    if (existingMLTeams.has(pick.opponent)) {
+                                        console.log(`⚠️ Already have ML bet for ${pick.opponent} - keeping original pick`);
+                                        return;
+                                    }
+                                }
+                                
                                 pick.sport = sport.name;
                                 pick.sportEmoji = sport.emoji;
                                 console.log('AI Pick:', pick);
