@@ -66,6 +66,30 @@
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
+        /* Dark Mode */
+        body.dark-mode {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        }
+        body.dark-mode .glass-card {
+            background: rgba(30, 30, 46, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        body.dark-mode h1, body.dark-mode h2, body.dark-mode h3 {
+            color: #e0e0e0 !important;
+        }
+        body.dark-mode .text-gray-900 { color: #e0e0e0 !important; }
+        body.dark-mode .text-gray-700 { color: #b0b0b0 !important; }
+        body.dark-mode .text-gray-600 { color: #909090 !important; }
+        body.dark-mode .text-gray-500 { color: #707070 !important; }
+        body.dark-mode .bg-gray-100 { background-color: #2a2a3e !important; }
+        body.dark-mode .bg-gray-200 { background-color: #3a3a4e !important; }
+        body.dark-mode .border-gray-300 { border-color: #4a4a5e !important; }
+        /* Mobile Optimization */
+        @media (max-width: 640px) {
+            .glass-card { padding: 12px !important; }
+            h1 { font-size: 1.5rem !important; }
+            .sportsbook-table { overflow-x: auto; display: block; }
+        }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -82,6 +106,8 @@
                     <div class="text-sm text-gray-500">AI Status</div>
                     <div class="text-lg font-bold text-green-600">● Learning</div>
                     <div class="text-xs text-gray-500 mt-1">API: <span id="apiUsage">0/500</span></div>
+                    <div class="text-xs text-gray-400 mt-1">Storage: <span id="storageUsage">0%</span></div>
+                    <button onclick="toggleDarkMode()" class="mt-2 text-xs px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors" id="darkModeBtn">🌙 Dark</button>
                 </div>
             </div>
         </div>
@@ -155,6 +181,26 @@
             </div>
         </div>
 
+        <!-- Confidence Filter & Data Management -->
+        <div class="glass-card p-4">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+                <div class="flex-1 w-full">
+                    <label class="text-sm font-semibold text-gray-700 dark:text-gray-300">🎯 Min Confidence Filter: <span id="minConfidenceValue" class="text-purple-600">0%</span></label>
+                    <input type="range" id="minConfidenceSlider" min="0" max="95" value="0" step="5" class="w-full mt-2" oninput="updateConfidenceFilter(this.value)">
+                    <div class="flex justify-between text-xs text-gray-400 mt-1">
+                        <span>All Bets</span>
+                        <span>50%</span>
+                        <span>Elite (95%)</span>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="exportData()" class="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">📥 Export</button>
+                    <button onclick="importData()" class="px-3 py-2 bg-green-500 text-white rounded hover:bg-green-600 text-sm">📤 Import</button>
+                    <button onclick="requestNotificationPermission()" class="px-3 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 text-sm" id="notifBtn">🔔</button>
+                </div>
+            </div>
+        </div>
+
         <!-- AI Control Panel -->
         <div class="glass-card p-6">
             <h2 class="text-xl font-bold text-gray-900 mb-4">🧠 AI Control Panel</h2>
@@ -197,7 +243,10 @@
 
         <!-- Learning Insights -->
         <div class="glass-card p-6">
-            <h2 class="text-xl font-bold text-gray-900 mb-4">📊 AI Learning Insights</h2>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">📊 AI Learning Insights</h2>
+                <button onclick="createModelSnapshot()" class="px-3 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 text-xs" id="snapshotBtn">💾 Snapshot</button>
+            </div>
             <div id="insights" class="space-y-4">
                 <div class="text-center text-gray-400 py-8">
                     AI insights will appear after learning cycles
@@ -205,8 +254,35 @@
             </div>
         </div>
 
+        <!-- Performance Analytics -->
+        <div class="glass-card p-6">
+            <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">📈 Performance Analytics</h2>
+            <canvas id="performanceChart" height="80"></canvas>
+            <div class="grid grid-cols-3 gap-4 mt-4 text-sm">
+                <div class="text-center">
+                    <div class="text-gray-500">7-Day Win Rate</div>
+                    <div class="text-xl font-bold text-green-600" id="weekWinRate">-</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-gray-500">ROI (Units)</div>
+                    <div class="text-xl font-bold text-blue-600" id="roiUnits">-</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-gray-500">Current Streak</div>
+                    <div class="text-xl font-bold text-purple-600" id="currentStreakDisplay">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Model Versions -->
+        <div class="glass-card p-4" id="modelVersions" style="display: none;">
+            <h3 class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">🔄 Model Snapshots</h3>
+            <div id="versionsList" class="space-y-2 text-xs"></div>
+        </div>
+
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         // Configuration
         const ODDS_API_KEY = '28beb23f0f84301404f98f2951928b52';
@@ -250,6 +326,229 @@
             const apiDisplay = document.getElementById('apiUsage');
             if (apiDisplay) {
                 apiDisplay.innerHTML = `<span class="${color} font-bold">${usage.count}/${usage.limit}</span> calls`;
+            }
+            
+            // Notify when approaching limit
+            if (percent >= 90 && !localStorage.getItem('api90notified')) {
+                showNotification('⚠️ API usage at 90% - Consider caching', 'warning');
+                localStorage.setItem('api90notified', 'true');
+            }
+        }
+        
+        // Storage Management
+        function getStorageUsage() {
+            let total = 0;
+            for (let key in localStorage) {
+                if (localStorage.hasOwnProperty(key)) {
+                    total += localStorage[key].length + key.length;
+                }
+            }
+            const mb = (total / (1024 * 1024)).toFixed(2);
+            const percent = ((total / (5 * 1024 * 1024)) * 100).toFixed(1);
+            return { bytes: total, mb, percent };
+        }
+        
+        function updateStorageDisplay() {
+            const usage = getStorageUsage();
+            const elem = document.getElementById('storageUsage');
+            if (elem) {
+                const color = usage.percent > 80 ? 'text-red-600' : usage.percent > 60 ? 'text-orange-600' : 'text-green-600';
+                elem.className = color + ' font-bold';
+                elem.textContent = usage.percent + '%';
+            }
+        }
+        
+        function cleanupOldData() {
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - 90); // Keep last 90 days
+            
+            predictions = predictions.filter(p => {
+                const predDate = new Date(p.timestamp || p.oddsTimestamp || 0);
+                return predDate > cutoffDate || !p.settled;
+            });
+            
+            savePredictions();
+            console.log(`🗑️ Cleaned up old predictions. ${predictions.length} remaining.`);
+        }
+        
+        // API Response Caching
+        const apiCache = {
+            data: {},
+            set(key, value, ttlMinutes = 5) {
+                this.data[key] = {
+                    value,
+                    expires: Date.now() + (ttlMinutes * 60 * 1000)
+                };
+            },
+            get(key) {
+                const cached = this.data[key];
+                if (!cached) return null;
+                if (Date.now() > cached.expires) {
+                    delete this.data[key];
+                    return null;
+                }
+                return cached.value;
+            },
+            clear() {
+                this.data = {};
+            }
+        };
+        
+        // Export/Import Functions
+        function exportData() {
+            const exportObj = {
+                predictions,
+                aiModel: ai.model,
+                exportDate: new Date().toISOString(),
+                version: '2.0'
+            };
+            const dataStr = JSON.stringify(exportObj, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `ai-betting-backup-${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+            showNotification('✅ Data exported successfully!', 'success');
+        }
+        
+        function importData() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const importObj = JSON.parse(event.target.result);
+                        if (confirm(`Import ${importObj.predictions?.length || 0} predictions and AI model from ${importObj.exportDate}?`)) {
+                            predictions = importObj.predictions || [];
+                            ai.model = importObj.aiModel || ai.model;
+                            savePredictions();
+                            ai.saveModel();
+                            displayPredictions();
+                            updateStats();
+                            showNotification('✅ Data imported successfully!', 'success');
+                        }
+                    } catch (err) {
+                        showNotification('❌ Invalid backup file', 'error');
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+        
+        // Confidence Filter
+        let minConfidenceFilter = 0;
+        function updateConfidenceFilter(value) {
+            minConfidenceFilter = parseInt(value);
+            document.getElementById('minConfidenceValue').textContent = value + '%';
+            displayPredictions();
+        }
+        
+        // Model Versioning
+        function createModelSnapshot() {
+            const snapshots = JSON.parse(localStorage.getItem('modelSnapshots') || '[]');
+            const snapshot = {
+                id: Date.now(),
+                timestamp: new Date().toISOString(),
+                model: JSON.parse(JSON.stringify(ai.model)),
+                winRate: ai.model.totalBets > 0 ? (ai.model.wins / ai.model.totalBets * 100).toFixed(1) : 0
+            };
+            snapshots.push(snapshot);
+            // Keep only last 10 snapshots
+            if (snapshots.length > 10) snapshots.shift();
+            localStorage.setItem('modelSnapshots', JSON.stringify(snapshots));
+            showNotification('💾 Model snapshot saved', 'success');
+            displayModelVersions();
+        }
+        
+        function displayModelVersions() {
+            const snapshots = JSON.parse(localStorage.getItem('modelSnapshots') || '[]');
+            const container = document.getElementById('modelVersions');
+            const list = document.getElementById('versionsList');
+            
+            if (snapshots.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+            
+            container.style.display = 'block';
+            list.innerHTML = snapshots.reverse().map((snap, idx) => `
+                <div class="flex justify-between items-center p-2 bg-gray-100 dark:bg-gray-800 rounded">
+                    <div>
+                        <div class="font-semibold">${new Date(snap.timestamp).toLocaleString()}</div>
+                        <div class="text-gray-500">Win Rate: ${snap.winRate}% | Bets: ${snap.model.totalBets}</div>
+                    </div>
+                    <button onclick="restoreModelSnapshot(${snap.id})" class="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600">Restore</button>
+                </div>
+            `).join('');
+        }
+        
+        function restoreModelSnapshot(snapshotId) {
+            const snapshots = JSON.parse(localStorage.getItem('modelSnapshots') || '[]');
+            const snapshot = snapshots.find(s => s.id === snapshotId);
+            if (!snapshot) return;
+            
+            if (confirm(`Restore model from ${new Date(snapshot.timestamp).toLocaleString()}?`)) {
+                ai.model = snapshot.model;
+                ai.saveModel();
+                updateStats();
+                showNotification('✅ Model restored successfully!', 'success');
+            }
+        }
+        
+        // Dark Mode
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+            const isDark = document.body.classList.contains('dark-mode');
+            localStorage.setItem('darkMode', isDark);
+            document.getElementById('darkModeBtn').textContent = isDark ? '☀️ Light' : '🌙 Dark';
+        }
+        
+        function initDarkMode() {
+            const isDark = localStorage.getItem('darkMode') === 'true';
+            if (isDark) {
+                document.body.classList.add('dark-mode');
+                document.getElementById('darkModeBtn').textContent = '☀️ Light';
+            }
+        }
+        
+        // Browser Notifications
+        let notificationsEnabled = false;
+        function requestNotificationPermission() {
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission().then(permission => {
+                    notificationsEnabled = permission === 'granted';
+                    if (notificationsEnabled) {
+                        showNotification('🔔 Notifications enabled!', 'success');
+                    }
+                });
+            } else if (Notification.permission === 'granted') {
+                notificationsEnabled = true;
+            }
+        }
+        
+        function showNotification(message, type = 'info') {
+            // Visual notification
+            const notif = document.createElement('div');
+            const colors = {
+                success: 'bg-green-500',
+                error: 'bg-red-500',
+                warning: 'bg-orange-500',
+                info: 'bg-blue-500'
+            };
+            notif.className = `fixed top-20 right-4 ${colors[type]} text-white px-4 py-3 rounded-lg shadow-lg z-50 animate-pulse`;
+            notif.textContent = message;
+            document.body.appendChild(notif);
+            setTimeout(() => notif.remove(), 3000);
+            
+            // Browser notification
+            if (notificationsEnabled && type !== 'info') {
+                new Notification('AI Betting System', { body: message, icon: '🤖' });
             }
         }
         
@@ -793,6 +1092,23 @@
                     this.model.losses++;
                 }
                 
+                // Track performance history for analytics
+                if (!this.model.performanceHistory) {
+                    this.model.performanceHistory = [];
+                }
+                this.model.performanceHistory.push({
+                    timestamp: Date.now(),
+                    won,
+                    confidence: prediction.confidence,
+                    odds: prediction.odds,
+                    units: prediction.units || 1,
+                    type: prediction.type
+                });
+                // Keep last 100 bets for analytics
+                if (this.model.performanceHistory.length > 100) {
+                    this.model.performanceHistory.shift();
+                }
+                
                 // Update recent trend tracking
                 if (!this.model.recentTrend) {
                     this.model.recentTrend = { last10: [], last20: [], currentStreak: 0, streakType: null };
@@ -1087,13 +1403,21 @@
                     
                     try {
                         const url = `https://api.the-odds-api.com/v4/sports/${sport.key}/odds?apiKey=${ODDS_API_KEY}&regions=us&markets=h2h,spreads,totals&oddsFormat=american`;
-                        const response = await fetch(url);
-                        trackApiCall(); // Count this API request
                         
-                        if (!response.ok) continue;
-                        
-                        const games = await response.json();
-                        console.log(`${sport.name}: ${games.length} games`);
+                        // Check cache first
+                        let games = apiCache.get(sport.key);
+                        if (!games) {
+                            const response = await fetch(url);
+                            trackApiCall(); // Count this API request
+                            
+                            if (!response.ok) continue;
+                            
+                            games = await response.json();
+                            apiCache.set(sport.key, games, 5); // Cache for 5 minutes
+                            console.log(`${sport.name}: ${games.length} games (from API)`);
+                        } else {
+                            console.log(`${sport.name}: ${games.length} games (from cache ⚡)`);
+                        }
                         
                         games.forEach(game => {
                             // Skip if we already have any prediction for this game
@@ -1214,12 +1538,19 @@
         function displayPredictions() {
             const container = document.getElementById('predictions');
             
-            if (predictions.length === 0) {
-                container.innerHTML = '<div class="text-center text-gray-400 py-8">No high-value bets found. AI is being selective! 🎯</div>';
+            // Apply confidence filter
+            const filteredPredictions = predictions.filter(p => p.confidence >= minConfidenceFilter);
+            
+            if (filteredPredictions.length === 0) {
+                if (predictions.length > 0 && minConfidenceFilter > 0) {
+                    container.innerHTML = `<div class="text-center text-gray-400 py-8">No bets match ${minConfidenceFilter}%+ confidence filter. ${predictions.length} bets hidden.</div>`;
+                } else {
+                    container.innerHTML = '<div class="text-center text-gray-400 py-8">No high-value bets found. AI is being selective! 🎯</div>';
+                }
                 return;
             }
             
-            container.innerHTML = predictions.map((p, i) => {
+            container.innerHTML = filteredPredictions.map((p, i) => {
                 // Ensure all properties exist
                 const betType = p.type || 'Moneyline';
                 const betDetails = p.betDetails || `${p.team} to Win`;
@@ -1619,10 +1950,14 @@
                     displayPredictions();
                     updateStats(); // Update stats after settlement
                     
-                    if (!silentMode) {
-                        alert(`✅ Settled ${settled} bets!\n\nWins: ${wins} ✅\nLosses: ${losses} ❌\nWin Rate: ${winRate}%\n\n🗑️ Removed ${removedCount} finished bets\n📊 ${predictions.length} bets still active\n\nAI is learning from results...`);
-                    } else {
+                    // Send notification
+                    const notifMessage = `✅ ${settled} bets settled - ${wins}W/${losses}L (${winRate}%)`;
+                    if (silentMode) {
+                        showNotification(notifMessage, profitable ? 'success' : 'warning');
                         console.log(`🤖 Auto-settled ${settled} bets (${wins}W/${losses}L - ${winRate}% WR) - ${predictions.length} active remaining`);
+                    } else {
+                        alert(`✅ Settled ${settled} bets!\n\nWins: ${wins} ✅\nLosses: ${losses} ❌\nWin Rate: ${winRate}%\n\n🗑️ Removed ${removedCount} finished bets\n📊 ${predictions.length} bets still active\n\nAI is learning from results...`);
+                    }
                     }
                 } else {
                     addLog('   ⏰ No games finished yet', 'warning');
@@ -1757,6 +2092,96 @@
                     momentumEl.textContent = '';
                 }
             }
+            
+            // Update performance analytics
+            updatePerformanceChart();
+        }
+        
+        // Performance Analytics with Chart.js
+        let performanceChart = null;
+        function updatePerformanceChart() {
+            const ctx = document.getElementById('performanceChart');
+            if (!ctx) return;
+            
+            // Get historical data from AI model
+            const history = ai.model.performanceHistory || [];
+            
+            // Calculate 7-day stats
+            const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+            const recentBets = history.filter(h => h.timestamp > sevenDaysAgo);
+            const recentWins = recentBets.filter(h => h.won).length;
+            const weekWinRate = recentBets.length > 0 ? ((recentWins / recentBets.length) * 100).toFixed(1) : '-';
+            document.getElementById('weekWinRate').textContent = recentBets.length > 0 ? weekWinRate + '%' : '-';
+            
+            // Calculate ROI in units
+            let totalUnits = 0;
+            recentBets.forEach(bet => {
+                const units = bet.units || 1;
+                if (bet.won) {
+                    // American odds to decimal conversion for profit
+                    const profit = bet.odds > 0 ? (bet.odds / 100) * units : (100 / Math.abs(bet.odds)) * units;
+                    totalUnits += profit;
+                } else {
+                    totalUnits -= units;
+                }
+            });
+            document.getElementById('roiUnits').textContent = totalUnits > 0 ? '+' + totalUnits.toFixed(1) : totalUnits.toFixed(1);
+            
+            // Current streak
+            const currentStreak = ai.model.recentTrend?.currentStreak || 0;
+            const streakType = ai.model.recentTrend?.streakType;
+            if (currentStreak >= 2) {
+                document.getElementById('currentStreakDisplay').textContent = 
+                    streakType === 'win' ? `🔥 ${currentStreak}W` : `❄️ ${currentStreak}L`;
+            } else {
+                document.getElementById('currentStreakDisplay').textContent = '-';
+            }
+            
+            // Prepare chart data (last 20 bets)
+            const chartData = history.slice(-20);
+            const labels = chartData.map((_, i) => `Bet ${i + 1}`);
+            const winData = chartData.map(h => h.won ? 1 : 0);
+            const confidenceData = chartData.map(h => h.confidence || 50);
+            
+            // Create or update chart
+            if (performanceChart) {
+                performanceChart.data.labels = labels;
+                performanceChart.data.datasets[0].data = winData;
+                performanceChart.data.datasets[1].data = confidenceData;
+                performanceChart.update();
+            } else {
+                performanceChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [
+                            {
+                                label: 'Win/Loss',
+                                data: winData,
+                                borderColor: 'rgb(34, 197, 94)',
+                                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                                yAxisID: 'y',
+                                stepped: true
+                            },
+                            {
+                                label: 'Confidence',
+                                data: confidenceData,
+                                borderColor: 'rgb(168, 85, 247)',
+                                backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                                yAxisID: 'y1'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        interaction: { mode: 'index', intersect: false },
+                        scales: {
+                            y: { type: 'linear', display: true, position: 'left', min: 0, max: 1, title: { display: true, text: 'Result' } },
+                            y1: { type: 'linear', display: true, position: 'right', min: 0, max: 100, title: { display: true, text: 'Confidence %' }, grid: { drawOnChartArea: false } }
+                        }
+                    }
+                });
+            }
         }
         
         // Auto-settlement system - Smart timing to avoid API limit
@@ -1853,19 +2278,38 @@
         updateStats();
         displayPredictions(); // Display loaded predictions
         updateApiUsageDisplay(); // Show API usage
+        updateStorageDisplay(); // Show storage usage
+        initDarkMode(); // Initialize dark mode
+        displayModelVersions(); // Show model snapshots
+        
+        // Check storage and cleanup if needed
+        const storageUsage = getStorageUsage();
+        if (storageUsage.percent > 80) {
+            console.warn('⚠️ Storage usage high, running cleanup...');
+            cleanupOldData();
+            updateStorageDisplay();
+        }
+        
+        // Request notification permission after 5 seconds
+        setTimeout(() => {
+            if (Notification.permission === 'default') {
+                console.log('💡 Tip: Enable notifications for bet updates');
+            }
+        }, 5000);
         
         // Start smart auto-settlement system
         scheduleNextAutoSettle();
         
         // Display version info
-        console.log('🚀 AI Betting System v2.0 - Build: 2024-12-10 18:30 UTC');
-        console.log('✅ Features: Multi-bet types (Moneyline/Spread/Total), AI Learning, Performance Tracking, Auto-Settlement');
+        console.log('🚀 AI Betting System v3.0 - Build: 2025-12-15 Enhanced');
+        console.log('✅ NEW: Storage Management, Export/Import, API Caching, Analytics, Dark Mode, Notifications');
+        console.log('✅ Features: Multi-bet types, AI Learning, CLV Tracking, Bet Sizing, Model Versioning');
         console.log(`📊 Loaded ${predictions.length} saved predictions`);
     </script>
     
     <!-- Version Footer -->
     <div style="text-align: center; padding: 20px; color: rgba(255,255,255,0.7); font-size: 12px;">
-        v2.0 • Build: Dec 10, 2024 18:30 UTC • Multi-Bet AI System
+        v3.0 • Build: Dec 15, 2025 • Enhanced: Analytics, Dark Mode, Export, Caching, Notifications
     </div>
 </body>
 </html>
