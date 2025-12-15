@@ -526,17 +526,77 @@
                     const typePreference = this.model.weights.betTypePreference[bet.type] || 1.0;
                     bet.adjustedScore = bet.valueScore * typePreference;
                     
-                    // Boost confidence based on historical performance
+                    // Start with calculated confidence
+                    let adjustedConfidence = bet.confidence;
+                    
+                    // Factor 1: Historical bet type performance
                     const typePerf = this.model.betTypePerformance[bet.type];
-                    if (typePerf && typePerf.total > 5) {
+                    if (typePerf && typePerf.total > 10) {
                         const winRate = typePerf.wins / typePerf.total;
-                        if (winRate > 0.55) {
-                            bet.confidence = Math.min(95, bet.confidence * 1.1);
+                        if (winRate > 0.60) {
+                            adjustedConfidence *= 1.15; // Strong bet type - boost 15%
+                        } else if (winRate > 0.55) {
+                            adjustedConfidence *= 1.08; // Good bet type - boost 8%
                         } else if (winRate < 0.45) {
-                            bet.confidence = Math.max(40, bet.confidence * 0.9);
+                            adjustedConfidence *= 0.85; // Weak bet type - reduce 15%
                         }
                     }
+                    
+                    // Factor 2: Team historical performance
+                    const teamPerf = this.model.patterns.teamPerformance[bet.team];
+                    if (teamPerf && teamPerf.total >= 5) {
+                        const teamWinRate = teamPerf.wins / teamPerf.total;
+                        if (teamWinRate > 0.65) {
+                            adjustedConfidence *= 1.12; // Hot team - boost 12%
+                        } else if (teamWinRate < 0.35) {
+                            adjustedConfidence *= 0.88; // Cold team - reduce 12%
+                        }
+                    }
+                    
+                    // Factor 3: Home/Away performance alignment
+                    if (bet.isHomeTeam !== undefined) {
+                        const position = bet.isHomeTeam ? 'home' : 'away';
+                        const posPerf = this.model.patterns.homeAwayPerformance[position];
+                        const posTotal = posPerf.wins + posPerf.losses;
+                        if (posTotal >= 10) {
+                            const posWinRate = posPerf.wins / posTotal;
+                            if (posWinRate > 0.58) {
+                                adjustedConfidence *= 1.08; // Strong position record
+                            } else if (posWinRate < 0.42) {
+                                adjustedConfidence *= 0.92; // Weak position record
+                            }
+                        }
+                    }
+                    
+                    // Factor 4: Recent momentum boost
+                    if (this.model.weights.recentMomentum > 0) {
+                        adjustedConfidence *= 1.05; // Hot streak - slight boost
+                    } else if (this.model.weights.recentMomentum < 0) {
+                        adjustedConfidence *= 0.93; // Cold streak - be cautious
+                    }
+                    
+                    // Factor 5: High odds discrepancy = high confidence
+                    if (parseFloat(bet.discrepancy) > 5.0) {
+                        adjustedConfidence *= 1.10; // Huge value found
+                    } else if (parseFloat(bet.discrepancy) > 3.5) {
+                        adjustedConfidence *= 1.05; // Good value
+                    }
+                    
+                    // Apply adaptive threshold - only accept if meets minimum
+                    const minConfidence = this.model.adaptiveThresholds?.minConfidence || 50;
+                    if (adjustedConfidence < minConfidence) {
+                        bet.confidence = 0; // Reject - below threshold
+                        return;
+                    }
+                    
+                    // Cap confidence appropriately
+                    bet.confidence = Math.min(99, Math.max(40, adjustedConfidence));
                 });
+                
+                // Filter out rejected bets (confidence = 0)
+                potentialBets = potentialBets.filter(b => b.confidence > 0);
+                
+                if (potentialBets.length === 0) return null;
                 
                 // Sort by adjusted score (value * learned preference)
                 potentialBets.sort((a, b) => b.adjustedScore - a.adjustedScore);
@@ -545,6 +605,24 @@
                 pick.game = `${awayTeam} @ ${homeTeam}`;
                 pick.gameTime = game.commence_time;
                 pick.gameId = game.id;
+                
+                // Assign confidence tier emoji
+                if (pick.confidence >= 95) {
+                    pick.confidenceTier = '💎'; // Diamond - Elite (95-99%)
+                    pick.tierName = 'ELITE';
+                } else if (pick.confidence >= 85) {
+                    pick.confidenceTier = '🔥'; // Fire - Premium (85-94%)
+                    pick.tierName = 'PREMIUM';
+                } else if (pick.confidence >= 75) {
+                    pick.confidenceTier = '⭐'; // Star - Strong (75-84%)
+                    pick.tierName = 'STRONG';
+                } else if (pick.confidence >= 65) {
+                    pick.confidenceTier = '✅'; // Check - Good (65-74%)
+                    pick.tierName = 'GOOD';
+                } else {
+                    pick.confidenceTier = '📊'; // Chart - Standard (50-64%)
+                    pick.tierName = 'STANDARD';
+                }
                 
                 return pick;
             }
@@ -928,9 +1006,19 @@
                 savePredictions();
                 
                 console.log(`Total predictions: ${predictions.length} (${oldCount} kept + ${newPredictions.length} new)`);
+                
+                // Count confidence tiers
+                const eliteBets = newPredictions.filter(p => p.confidence >= 95).length;
+                const premiumBets = newPredictions.filter(p => p.confidence >= 85 && p.confidence < 95).length;
+                const strongBets = newPredictions.filter(p => p.confidence >= 75 && p.confidence < 85).length;
+                
                 displayPredictions();
                 
-                alert(`✅ Added ${newPredictions.length} new bets! Total active: ${predictions.length} (kept ${oldCount} existing)`);
+                let alertMsg = `✅ Added ${newPredictions.length} new bets! Total active: ${predictions.length} (kept ${oldCount} existing)\n\n`;
+                if (eliteBets > 0) alertMsg += `💎 ELITE bets (95%+): ${eliteBets}\n`;
+                if (premiumBets > 0) alertMsg += `🔥 PREMIUM bets (85-94%): ${premiumBets}\n`;
+                if (strongBets > 0) alertMsg += `⭐ STRONG bets (75-84%): ${strongBets}\n`;
+                alert(alertMsg);
                 
             } catch (error) {
                 console.error('Full error:', error);
@@ -966,14 +1054,40 @@
                 
                 const timeStr = gameDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
                 
+                // Determine border color based on confidence tier
+                let borderClass = 'border-gray-200';
+                let bgClass = '';
+                if (p.settled) {
+                    borderClass = p.won ? 'border-green-400' : 'border-red-400';
+                    bgClass = p.won ? 'bg-green-50' : 'bg-red-50';
+                } else if (p.confidence >= 95) {
+                    borderClass = 'border-purple-500 shadow-lg';
+                    bgClass = 'bg-gradient-to-r from-purple-50 to-pink-50';
+                } else if (p.confidence >= 85) {
+                    borderClass = 'border-orange-500';
+                    bgClass = 'bg-orange-50';
+                } else if (p.confidence >= 75) {
+                    borderClass = 'border-yellow-400';
+                    bgClass = 'bg-yellow-50';
+                }
+                
                 return `
-                <div class="border-2 ${p.settled ? (p.won ? 'border-green-400 bg-green-50' : 'border-red-400 bg-red-50') : 'border-gray-200'} rounded-lg p-4 hover:border-purple-400 transition">
-                    <!-- Sport Badge -->
-                    ${sportDisplay ? `<div class="inline-block bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded mb-2">${sportDisplay}</div>` : ''}
+                <div class="border-2 ${borderClass} ${bgClass} rounded-lg p-4 hover:border-purple-400 transition slide-in">
+                    <!-- Confidence Tier Badge -->
+                    ${p.confidenceTier && !p.settled ? `
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="inline-block ${p.confidence >= 95 ? 'bg-gradient-to-r from-purple-600 to-pink-600' : p.confidence >= 85 ? 'bg-gradient-to-r from-orange-500 to-red-500' : 'bg-gradient-to-r from-yellow-500 to-orange-500'} text-white text-xs font-bold px-3 py-1 rounded-full">
+                                ${p.confidenceTier} ${p.tierName} BET
+                            </div>
+                            ${sportDisplay ? `<div class="inline-block bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded">${sportDisplay}</div>` : ''}
+                        </div>
+                    ` : `
+                        ${sportDisplay ? `<div class="inline-block bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded mb-2">${sportDisplay}</div>` : ''}
+                    `}
                     
                     <!-- Game Header -->
                     <div class="flex items-center gap-2 mb-3">
-                        <span class="text-3xl">${p.settled ? (p.won ? '✅' : '❌') : (p.confidence > 70 ? '🤖' : '📊')}</span>
+                        <span class="text-4xl">${p.settled ? (p.won ? '✅' : '❌') : (p.confidenceTier || '📊')}</span>
                         <div class="flex-1">
                             <div class="font-bold text-base text-gray-900">
                                 ${p.game}
@@ -985,7 +1099,7 @@
                         </div>
                         <div class="text-right">
                             <div class="text-xs text-gray-400">Confidence</div>
-                            <div class="text-2xl font-bold text-purple-600">${p.confidence.toFixed(0)}%</div>
+                            <div class="text-2xl font-bold ${p.confidence >= 85 ? 'text-green-600' : 'text-purple-600'}">${p.confidence.toFixed(0)}%</div>
                         </div>
                     </div>
                     
