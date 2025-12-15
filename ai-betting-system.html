@@ -287,7 +287,7 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm text-gray-700 dark:text-gray-300">
                         <div class="flex items-center gap-1">
                             <span class="text-green-600 dark:text-green-400">✓</span>
-                            <span><strong>6am CT:</strong> Daily analysis (~150 calls/month)</span>
+                            <span><strong>6am CT:</strong> Daily analysis (8 sports = ~240 calls/month)</span>
                         </div>
                         <div class="flex items-center gap-1">
                             <span class="text-green-600 dark:text-green-400">✓</span>
@@ -299,7 +299,7 @@
                         </div>
                         <div class="flex items-center gap-1">
                             <span class="text-blue-600 dark:text-blue-400">📊</span>
-                            <span><strong>10 calls/day = 300/month</strong> (safe buffer)</span>
+                            <span><strong>16 calls/day = ~480/month</strong> (optimized usage)</span>
                         </div>
                     </div>
                 </div>
@@ -2808,10 +2808,10 @@
             }
             
             btn.disabled = true;
-            btn.innerHTML = '<div class="text-lg">⏳ Analyzing...</div><div class="text-xs opacity-90">Checking all sports...</div>';
+            btn.innerHTML = '<div class="text-lg">⏳ Analyzing...</div><div class="text-xs opacity-90">Checking all 8 sports...</div>';
             
             // CHECK API LIMIT BEFORE STARTING
-            const apiCheck = canMakeApiCall(5); // Checking 5 sports max
+            const apiCheck = canMakeApiCall(8); // Checking 8 sports (NFL, NBA, NHL, MLB, NCAAF, EPL, MLS, UCL)
             if (!apiCheck.allowed) {
                 btn.disabled = false;
                 btn.innerHTML = '<div class="text-lg">🔍 Analyze Games</div><div class="text-xs opacity-90">Find value bets with AI</div>';
@@ -3253,7 +3253,7 @@
             }
             
             // CHECK API LIMIT BEFORE SETTLING
-            const apiCheck = canMakeApiCall(5); // Max 5 sports
+            const apiCheck = canMakeApiCall(8); // Max 8 sports (NFL, NBA, NHL, MLB, NCAAF, EPL, MLS, UCL)
             if (!apiCheck.allowed) {
                 if (!silentMode) {
                     alert(`⚠️ API Limit Reached!\n\nCannot settle bets - you've used ${apiCheck.current}/${apiCheck.limit} API calls this month.\nLimit resets next month.`);
@@ -3910,7 +3910,7 @@
                     console.log('🌅 6:00 AM CT - Running scheduled daily analysis...');
                     showNotification('🌅 Good morning! Running daily game analysis...', 'info');
                     
-                    const apiCheck = canMakeApiCall(5);
+                    const apiCheck = canMakeApiCall(8); // 8 sports: NFL, NBA, NHL, MLB, NCAAF, EPL, MLS, UCL
                     if (apiCheck.allowed) {
                         await analyzeGames();
                         localStorage.setItem('lastScheduledAnalysis', today);
@@ -3926,7 +3926,7 @@
                     console.log('🌙 11:00 PM CT - Running scheduled daily settlement...');
                     showNotification('🌙 End of day settlement starting...', 'info');
                     
-                    const apiCheck = canMakeApiCall(5);
+                    const apiCheck = canMakeApiCall(8); // 8 sports: NFL, NBA, NHL, MLB, NCAAF, EPL, MLS, UCL
                     if (apiCheck.allowed && predictions.some(p => !p.settled)) {
                         const beforeCount = predictions.filter(p => !p.settled).length;
                         await settleBets(true);
