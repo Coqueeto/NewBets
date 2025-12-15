@@ -120,6 +120,11 @@
                     <div class="text-xs opacity-90">AI self-improvement</div>
                 </button>
             </div>
+            <div class="mt-4 text-center">
+                <button onclick="clearAllBets()" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded text-sm">
+                    🗑️ Clear All Bets
+                </button>
+            </div>
         </div>
 
         <!-- Settlement Log -->
@@ -156,6 +161,25 @@
         let currentSport = null;
         let currentSportName = '';
         let predictions = [];
+        
+        // Load predictions from localStorage on startup
+        function loadPredictions() {
+            const saved = localStorage.getItem('predictions');
+            if (saved) {
+                try {
+                    predictions = JSON.parse(saved);
+                    console.log(`Loaded ${predictions.length} saved predictions`);
+                } catch (e) {
+                    console.error('Error loading predictions:', e);
+                    predictions = [];
+                }
+            }
+        }
+        
+        // Save predictions to localStorage
+        function savePredictions() {
+            localStorage.setItem('predictions', JSON.stringify(predictions));
+        }
         
         // AI Learning Model
         class BettingAI {
@@ -623,56 +647,80 @@
         }
         
         async function analyzeGames() {
-            if (!currentSport) {
-                alert('Please select a sport first!');
-                return;
-            }
-            
             const btn = document.getElementById('analyzeBtn');
             btn.disabled = true;
-            btn.innerHTML = '<div class="text-lg">⏳ Analyzing...</div><div class="text-xs opacity-90">AI at work</div>';
+            btn.innerHTML = '<div class="text-lg">⏳ Analyzing...</div><div class="text-xs opacity-90">Checking all sports...</div>';
             
             try {
-                const url = `https://api.the-odds-api.com/v4/sports/${currentSport}/odds?apiKey=${ODDS_API_KEY}&regions=us&markets=h2h,spreads&oddsFormat=american`;
-                console.log('Fetching:', url.replace(ODDS_API_KEY, 'KEY_HIDDEN'));
+                // All sports to analyze
+                const sports = [
+                    { key: 'americanfootball_nfl', name: 'NFL', emoji: '🏈' },
+                    { key: 'basketball_nba', name: 'NBA', emoji: '🏀' },
+                    { key: 'icehockey_nhl', name: 'NHL', emoji: '🏒' },
+                    { key: 'baseball_mlb', name: 'MLB', emoji: '⚾' },
+                    { key: 'americanfootball_ncaaf', name: 'NCAAF', emoji: '🎓' }
+                ];
                 
-                const response = await fetch(url);
-                console.log('Response status:', response.status);
+                const newPredictions = [];
+                const existingGameIds = new Set(predictions.map(p => p.gameId));
                 
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`API error ${response.status}: ${errorText}`);
+                for (const sport of sports) {
+                    console.log(`Analyzing ${sport.name}...`);
+                    
+                    try {
+                        const url = `https://api.the-odds-api.com/v4/sports/${sport.key}/odds?apiKey=${ODDS_API_KEY}&regions=us&markets=h2h,spreads,totals&oddsFormat=american`;
+                        const response = await fetch(url);
+                        
+                        if (!response.ok) continue;
+                        
+                        const games = await response.json();
+                        console.log(`${sport.name}: ${games.length} games`);
+                        
+                        games.forEach(game => {
+                            // Skip if we already have a prediction for this game
+                            if (existingGameIds.has(game.id)) {
+                                console.log(`Skipping ${game.id} - already have prediction`);
+                                return;
+                            }
+                            
+                            const pick = ai.analyzeGame(game);
+                            if (pick) {
+                                pick.sport = sport.name;
+                                pick.sportEmoji = sport.emoji;
+                                console.log('AI Pick:', pick);
+                                newPredictions.push(pick);
+                            }
+                        });
+                    } catch (error) {
+                        console.error(`Error analyzing ${sport.name}:`, error);
+                    }
                 }
                 
-                const games = await response.json();
-                console.log(`Received ${games.length} games`);
+                console.log(`Generated ${newPredictions.length} new predictions`);
                 
-                if (!Array.isArray(games) || games.length === 0) {
-                    alert('⚠️ No games available for ' + currentSportName + ' right now. Try another sport!');
+                if (newPredictions.length === 0) {
+                    alert('⏰ No new high-value bets found across all sports. AI is being selective!');
                     btn.disabled = false;
                     btn.innerHTML = '<div class="text-lg">🔍 Analyze Games</div><div class="text-xs opacity-90">Find value bets with AI</div>';
                     return;
                 }
                 
-                predictions = [];
-                games.forEach(game => {
-                    const pick = ai.analyzeGame(game);
-                    if (pick) {
-                        console.log('AI Pick:', pick);
-                        predictions.push(pick);
-                    }
-                });
+                // Sort new predictions by confidence
+                newPredictions.sort((a, b) => b.confidence - a.confidence);
                 
-                console.log(`Generated ${predictions.length} predictions`);
+                // Add new predictions to existing ones (keep old ones)
+                predictions.push(...newPredictions.slice(0, 10));
                 
-                // Sort by confidence
+                // Sort all predictions by confidence
                 predictions.sort((a, b) => b.confidence - a.confidence);
                 
-                // Take top 5
-                predictions = predictions.slice(0, 5);
+                // Save to localStorage
+                savePredictions();
                 
-                console.log('Top 5 predictions:', predictions);
+                console.log(`Total predictions: ${predictions.length}`);
                 displayPredictions();
+                
+                alert(`✅ Found ${newPredictions.length} new value bets across all sports!`);
                 
             } catch (error) {
                 console.error('Full error:', error);
@@ -695,9 +743,24 @@
                 // Ensure all properties exist
                 const betType = p.type || 'Moneyline';
                 const betDetails = p.betDetails || `${p.team} to Win`;
+                const sportDisplay = p.sport ? `${p.sportEmoji || ''} ${p.sport}` : '';
+                const gameDate = new Date(p.gameTime);
+                const now = new Date();
+                const isToday = gameDate.toDateString() === now.toDateString();
+                const isTomorrow = gameDate.toDateString() === new Date(now.getTime() + 86400000).toDateString();
+                
+                let dateStr = '';
+                if (isToday) dateStr = 'Today';
+                else if (isTomorrow) dateStr = 'Tomorrow';
+                else dateStr = gameDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                
+                const timeStr = gameDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
                 
                 return `
                 <div class="border-2 ${p.settled ? (p.won ? 'border-green-400 bg-green-50' : 'border-red-400 bg-red-50') : 'border-gray-200'} rounded-lg p-4 hover:border-purple-400 transition">
+                    <!-- Sport Badge -->
+                    ${sportDisplay ? `<div class="inline-block bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded mb-2">${sportDisplay}</div>` : ''}
+                    
                     <!-- Game Header -->
                     <div class="flex items-center gap-2 mb-3">
                         <span class="text-3xl">${p.settled ? (p.won ? '✅' : '❌') : (p.confidence > 70 ? '🤖' : '📊')}</span>
@@ -706,7 +769,7 @@
                                 ${p.game}
                             </div>
                             <div class="text-xs text-gray-500">
-                                ${new Date(p.gameTime).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                                📅 ${dateStr} at ${timeStr}
                                 ${p.settled ? `<span class="ml-2 font-bold ${p.won ? 'text-green-600' : 'text-red-600'}">${p.won ? 'WON' : 'LOST'}</span>` : '<span class="ml-2 text-orange-600">PENDING</span>'}
                             </div>
                         </div>
@@ -922,6 +985,7 @@
                     addLog(`   Win Rate: ${winRate}% ${profitable ? '🎯' : ''}`, profitable ? 'success' : 'warning');
                     addLog(`   ${profitable ? '💰 Profitable!' : '📊 Keep learning...'}`, profitable ? 'success' : 'warning');
                     
+                    savePredictions(); // Save settled predictions
                     displayPredictions();
                     alert(`✅ Settled ${settled} bets!\n\nWins: ${wins} ✅\nLosses: ${losses} ❌\nWin Rate: ${winRate}%\n\nAI is learning from results...`);
                 } else {
@@ -938,6 +1002,15 @@
             
             btn.disabled = false;
             btn.innerHTML = '<div class="text-lg">✅ Settle Results</div><div class="text-xs opacity-90">Get real game outcomes</div>';
+        }
+        
+        function clearAllBets() {
+            if (confirm('⚠️ Clear all bets? This will remove all predictions but keep your AI learning data.')) {
+                predictions = [];
+                savePredictions();
+                displayPredictions();
+                alert('✅ All bets cleared!');
+            }
         }
         
         function runLearningCycle() {
@@ -983,11 +1056,14 @@
         }
         
         // Initialize
+        loadPredictions(); // Load saved predictions
         updateStats();
+        displayPredictions(); // Display loaded predictions
         
         // Display version info
         console.log('🚀 AI Betting System v2.0 - Build: 2024-12-10 18:30 UTC');
         console.log('✅ Features: Multi-bet types (Moneyline/Spread/Total), AI Learning, Performance Tracking');
+        console.log(`📊 Loaded ${predictions.length} saved predictions`);
     </script>
     
     <!-- Version Footer -->
