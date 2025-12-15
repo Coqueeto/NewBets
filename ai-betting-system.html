@@ -2078,6 +2078,15 @@
                         discrepancyRanges: {}, // High discrepancy = winner?
                         contextualFactors: { rivalry: 0, primeTime: 0, backToBack: 0 },
                         publicFade: 0, // Fading public success rate
+                        weatherConditions: { // Learn if weather actually matters
+                            withWeather: { wins: 0, total: 0 },
+                            noWeather: { wins: 0, total: 0 },
+                            snow: { wins: 0, total: 0 },
+                            rain: { wins: 0, total: 0 },
+                            wind: { wins: 0, total: 0 },
+                            cold: { wins: 0, total: 0 },
+                            heat: { wins: 0, total: 0 }
+                        },
                         minConfidence: 50, // Learned minimum confidence
                         minDiscrepancy: 1.5 // Learned minimum discrepancy
                     };
@@ -2127,6 +2136,37 @@
                 
                 // Learn public fade success
                 if (winningBet.publicFade) patterns.publicFade++;
+                
+                // LEARN: Does weather actually help predict wins?
+                if (winningBet.weather) {
+                    patterns.weatherConditions.withWeather.wins++;
+                    patterns.weatherConditions.withWeather.total++;
+                    
+                    // Track specific conditions
+                    if (winningBet.weather.snow > 0) {
+                        patterns.weatherConditions.snow.wins++;
+                        patterns.weatherConditions.snow.total++;
+                    }
+                    if (winningBet.weather.rain > 0.1) {
+                        patterns.weatherConditions.rain.wins++;
+                        patterns.weatherConditions.rain.total++;
+                    }
+                    if (winningBet.weather.windSpeed > 15) {
+                        patterns.weatherConditions.wind.wins++;
+                        patterns.weatherConditions.wind.total++;
+                    }
+                    if (winningBet.weather.temp < 20) {
+                        patterns.weatherConditions.cold.wins++;
+                        patterns.weatherConditions.cold.total++;
+                    }
+                    if (winningBet.weather.temp > 95) {
+                        patterns.weatherConditions.heat.wins++;
+                        patterns.weatherConditions.heat.total++;
+                    }
+                } else {
+                    patterns.weatherConditions.noWeather.wins++;
+                    patterns.weatherConditions.noWeather.total++;
+                }
                 
                 // Adjust learned thresholds based on winning patterns
                 if (this.model.totalBets >= 30) {
@@ -2471,7 +2511,16 @@
                         oddsRanges: {}, // Dangerous odds ranges
                         lowDiscrepancy: 0, // Bets with low edge that lost
                         overconfident: 0, // High confidence bets that lost
-                        contexts: {} // Situational losses
+                        contexts: {}, // Situational losses
+                        weatherConditions: { // Learn if weather causes losses
+                            withWeather: { losses: 0, total: 0 },
+                            noWeather: { losses: 0, total: 0 },
+                            snow: { losses: 0, total: 0 },
+                            rain: { losses: 0, total: 0 },
+                            wind: { losses: 0, total: 0 },
+                            cold: { losses: 0, total: 0 },
+                            heat: { losses: 0, total: 0 }
+                        }
                     };
                 }
                 
@@ -2513,6 +2562,37 @@
                     const context = losingBet.isRivalry ? 'rivalry' : losingBet.isPrimeTime ? 'primeTime' : 'backToBack';
                     if (!patterns.contexts[context]) patterns.contexts[context] = 0;
                     patterns.contexts[context]++;
+                }
+                
+                // LEARN: Does weather lead to losses?
+                if (losingBet.weather) {
+                    patterns.weatherConditions.withWeather.losses++;
+                    patterns.weatherConditions.withWeather.total++;
+                    
+                    // Track specific conditions that caused losses
+                    if (losingBet.weather.snow > 0) {
+                        patterns.weatherConditions.snow.losses++;
+                        patterns.weatherConditions.snow.total++;
+                    }
+                    if (losingBet.weather.rain > 0.1) {
+                        patterns.weatherConditions.rain.losses++;
+                        patterns.weatherConditions.rain.total++;
+                    }
+                    if (losingBet.weather.windSpeed > 15) {
+                        patterns.weatherConditions.wind.losses++;
+                        patterns.weatherConditions.wind.total++;
+                    }
+                    if (losingBet.weather.temp < 20) {
+                        patterns.weatherConditions.cold.losses++;
+                        patterns.weatherConditions.cold.total++;
+                    }
+                    if (losingBet.weather.temp > 95) {
+                        patterns.weatherConditions.heat.losses++;
+                        patterns.weatherConditions.heat.total++;
+                    }
+                } else {
+                    patterns.weatherConditions.noWeather.losses++;
+                    patterns.weatherConditions.noWeather.total++;
                 }
             }
             
@@ -2871,16 +2951,37 @@
                     return { adjustTotal: 0, reason: null };
                 }
                 
+                // CRITICAL: Check if AI has learned that weather actually matters
+                const weatherEffectiveness = this.evaluateWeatherEffectiveness(weather);
+                
+                // If weather doesn't help predictions, ignore it
+                if (!weatherEffectiveness.shouldUse) {
+                    console.log(`🤔 AI learned weather doesn't help predictions - ignoring (${weatherEffectiveness.reason})`);
+                    return { adjustTotal: 0, adjustConfidence: 1.0, reason: null, weatherData: weather };
+                }
+                
                 // Calculate weather impact using real-time data
                 const impact = this.calculateWeatherImpact(weather);
                 
                 let adjustTotal = 0;
+                let adjustConfidence = 1.0;
                 let reasons = [...impact.factors];
                 
-                // Weather affects totals more than moneyline
-                if (weather.snow > 0 || weather.rain > 0.1 || weather.windSpeed > 15) {
-                    adjustTotal = -0.10; // Bad weather = lower scoring
-                    if (weather.snow > 0) adjustTotal = -0.15; // Snow = much lower scoring
+                // Apply adjustments ONLY if AI learned they help
+                if (weatherEffectiveness.snowHelps && weather.snow > 0) {
+                    adjustTotal = -0.15;
+                    adjustConfidence = 1 + (impact.score / 100);
+                } else if (weatherEffectiveness.rainHelps && weather.rain > 0.1) {
+                    adjustTotal = -0.10;
+                    adjustConfidence = 1 + (impact.score / 100);
+                } else if (weatherEffectiveness.windHelps && weather.windSpeed > 15) {
+                    adjustTotal = -0.05;
+                    adjustConfidence = 1 + (impact.score / 150);
+                } else {
+                    // Weather present but AI learned it doesn't matter
+                    adjustTotal = 0;
+                    adjustConfidence = 1.0;
+                    reasons = [];
                 }
                 
                 // Combine reasons
@@ -2888,9 +2989,65 @@
                 
                 return { 
                     adjustTotal, 
-                    adjustConfidence: 1 + (impact.score / 100), // Convert score to multiplier
+                    adjustConfidence,
                     reason,
                     weatherData: weather
+                };
+            }
+            
+            // Evaluate if weather actually helps predictions based on learned patterns
+            evaluateWeatherEffectiveness(weather) {
+                const winPatterns = this.model.moneyMakerPatterns?.weatherConditions;
+                const losePatterns = this.model.losingPatterns?.weatherConditions;
+                
+                // Need at least 10 bets with weather to evaluate
+                const withWeatherTotal = (winPatterns?.withWeather?.total || 0) + (losePatterns?.withWeather?.total || 0);
+                const noWeatherTotal = (winPatterns?.noWeather?.total || 0) + (losePatterns?.noWeather?.total || 0);
+                
+                if (withWeatherTotal < 10) {
+                    return { 
+                        shouldUse: true, 
+                        reason: 'Not enough data - using weather by default',
+                        snowHelps: true,
+                        rainHelps: true,
+                        windHelps: true
+                    };
+                }
+                
+                // Calculate win rate with weather vs without
+                const withWeatherWins = winPatterns?.withWeather?.wins || 0;
+                const withWeatherWR = withWeatherTotal > 0 ? withWeatherWins / withWeatherTotal : 0;
+                
+                const noWeatherWins = winPatterns?.noWeather?.wins || 0;
+                const noWeatherWR = noWeatherTotal > 0 ? noWeatherWins / noWeatherTotal : 0;
+                
+                // If win rate WITHOUT weather is better, don't use weather
+                if (noWeatherWR > withWeatherWR + 0.05) {
+                    return { 
+                        shouldUse: false, 
+                        reason: `No-weather WR ${(noWeatherWR*100).toFixed(0)}% > Weather WR ${(withWeatherWR*100).toFixed(0)}%`,
+                        snowHelps: false,
+                        rainHelps: false,
+                        windHelps: false
+                    };
+                }
+                
+                // Check specific conditions
+                const snowTotal = (winPatterns?.snow?.total || 0) + (losePatterns?.snow?.total || 0);
+                const snowWR = snowTotal >= 5 ? (winPatterns?.snow?.wins || 0) / snowTotal : 0.5;
+                
+                const rainTotal = (winPatterns?.rain?.total || 0) + (losePatterns?.rain?.total || 0);
+                const rainWR = rainTotal >= 5 ? (winPatterns?.rain?.wins || 0) / rainTotal : 0.5;
+                
+                const windTotal = (winPatterns?.wind?.total || 0) + (losePatterns?.wind?.total || 0);
+                const windWR = windTotal >= 5 ? (winPatterns?.wind?.wins || 0) / windTotal : 0.5;
+                
+                return {
+                    shouldUse: true,
+                    reason: `Weather helps predictions (${(withWeatherWR*100).toFixed(0)}% WR)`,
+                    snowHelps: snowWR >= 0.50, // Use snow adjustment if it doesn't hurt
+                    rainHelps: rainWR >= 0.50,
+                    windHelps: windWR >= 0.50
                 };
             }
             
