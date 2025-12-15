@@ -679,24 +679,34 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        // Configuration - Dual API Keys with Auto-Rotation
-        const API_KEYS = [
-            { key: '28beb23f0f84301404f98f2951928b52', limit: 500, name: 'Primary' },
-            { key: '4d835fe41ae1bbedccace3fb89230de2', limit: 100, name: 'Secondary' }
+        // Configuration - Multi-API System
+        const ODDS_API_KEYS = [
+            { key: '28beb23f0f84301404f98f2951928b52', limit: 500, name: 'Primary', type: 'odds' }
         ];
+        
+        // API-Sports Backup (100 calls/day PER SPORT!)
+        const API_SPORTS_KEY = '4d835fe41ae1bbedccace3fb89230de2';
+        const API_SPORTS_ENDPOINTS = {
+            football: { url: 'https://v3.football.api-sports.io', limit: 100 },
+            basketball: { url: 'https://v1.basketball.api-sports.io', limit: 100 },
+            baseball: { url: 'https://v1.baseball.api-sports.io', limit: 100 },
+            americanfootball: { url: 'https://v1.american-football.api-sports.io', limit: 100 },
+            hockey: { url: 'https://v1.hockey.api-sports.io', limit: 100 }
+        };
+        
         let currentSport = null;
         let currentSportName = '';
         let predictions = [];
         
-        // API Usage Tracking - Multi-Key Support
+        // API Usage Tracking - Multi-API Support
         function getActiveApiKey() {
             const now = new Date();
             const monthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
-            const apiUsage = JSON.parse(localStorage.getItem('apiUsageMulti') || '{}');
+            const apiUsage = JSON.parse(localStorage.getItem('apiUsageOdds') || '{}');
             
-            // Initialize tracking for all keys
+            // Initialize tracking for odds API keys
             if (!apiUsage[monthKey]) {
-                apiUsage[monthKey] = API_KEYS.map(k => ({ 
+                apiUsage[monthKey] = ODDS_API_KEYS.map(k => ({ 
                     name: k.name, 
                     count: 0, 
                     limit: k.limit,
@@ -718,10 +728,10 @@
         function trackApiCall() {
             const now = new Date();
             const monthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
-            const apiUsage = JSON.parse(localStorage.getItem('apiUsageMulti') || '{}');
+            const apiUsage = JSON.parse(localStorage.getItem('apiUsageOdds') || '{}');
             
             if (!apiUsage[monthKey]) {
-                apiUsage[monthKey] = API_KEYS.map(k => ({ 
+                apiUsage[monthKey] = ODDS_API_KEYS.map(k => ({ 
                     name: k.name, 
                     count: 0, 
                     limit: k.limit,
@@ -742,18 +752,64 @@
                 if (key !== currentMonth) delete apiUsage[key];
             });
             
-            localStorage.setItem('apiUsageMulti', JSON.stringify(apiUsage));
+            localStorage.setItem('apiUsageOdds', JSON.stringify(apiUsage));
             updateApiUsageDisplay();
             return apiUsage[monthKey];
+        }
+        
+        // Track API-Sports usage (daily limit per sport)
+        function trackApiSportsCall(sport) {
+            const now = new Date();
+            const dayKey = now.toISOString().split('T')[0]; // YYYY-MM-DD
+            const apiSportsUsage = JSON.parse(localStorage.getItem('apiSportsUsage') || '{}');
+            
+            if (!apiSportsUsage[dayKey]) {
+                apiSportsUsage[dayKey] = {};
+                Object.keys(API_SPORTS_ENDPOINTS).forEach(s => {
+                    apiSportsUsage[dayKey][s] = { count: 0, limit: 100 };
+                });
+            }
+            
+            if (!apiSportsUsage[dayKey][sport]) {
+                apiSportsUsage[dayKey][sport] = { count: 0, limit: 100 };
+            }
+            
+            apiSportsUsage[dayKey][sport].count++;
+            
+            // Clean up old days (keep last 7 days)
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - 7);
+            Object.keys(apiSportsUsage).forEach(key => {
+                if (new Date(key) < cutoff) delete apiSportsUsage[key];
+            });
+            
+            localStorage.setItem('apiSportsUsage', JSON.stringify(apiSportsUsage));
+            updateApiUsageDisplay();
+            return apiSportsUsage[dayKey][sport];
+        }
+        
+        function getApiSportsUsage() {
+            const now = new Date();
+            const dayKey = now.toISOString().split('T')[0];
+            const apiSportsUsage = JSON.parse(localStorage.getItem('apiSportsUsage') || '{}');
+            
+            if (!apiSportsUsage[dayKey]) {
+                const usage = {};
+                Object.keys(API_SPORTS_ENDPOINTS).forEach(s => {
+                    usage[s] = { count: 0, limit: 100 };
+                });
+                return usage;
+            }
+            return apiSportsUsage[dayKey];
         }
         
         function getApiUsage() {
             const now = new Date();
             const monthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
-            const apiUsage = JSON.parse(localStorage.getItem('apiUsageMulti') || '{}');
+            const apiUsage = JSON.parse(localStorage.getItem('apiUsageOdds') || '{}');
             
             if (!apiUsage[monthKey]) {
-                return API_KEYS.map(k => ({ name: k.name, count: 0, limit: k.limit }));
+                return ODDS_API_KEYS.map(k => ({ name: k.name, count: 0, limit: k.limit }));
             }
             return apiUsage[monthKey];
         }
@@ -776,6 +832,7 @@
         
         function updateApiUsageDisplay() {
             const usageArray = getApiUsage();
+            const footballUsage = getApiFootballUsage();
             const totalUsed = usageArray.reduce((sum, k) => sum + k.count, 0);
             const totalLimit = usageArray.reduce((sum, k) => sum + k.limit, 0);
             const percent = (totalUsed / totalLimit * 100).toFixed(0);
@@ -784,23 +841,36 @@
             const apiDisplay = document.getElementById('apiUsage');
             
             if (apiDisplay) {
-                // Show total usage across all keys
-                let html = `<span class="${color} font-bold">${totalUsed}/${totalLimit}</span> calls`;
+                // Show Odds API usage
+                let html = `<div class="mb-1"><span class="${color} font-bold">${totalUsed}/${totalLimit}</span> Odds API (month)</div>`;
                 
-                // Show individual key status
+                // Show individual Odds API key status
                 const keyDetails = usageArray.map(k => {
                     const keyPercent = (k.count / k.limit * 100).toFixed(0);
                     const keyColor = keyPercent >= 100 ? 'text-red-500' : keyPercent > 90 ? 'text-orange-500' : 'text-green-500';
                     return `<span class="${keyColor} text-xs">${k.name}: ${k.count}/${k.limit}</span>`;
                 }).join(' • ');
                 
-                html += `<br><span class="text-xs text-gray-600 dark:text-gray-400">${keyDetails}</span>`;
+                html += `<div class="text-xs text-gray-600 dark:text-gray-400 mb-1">${keyDetails}</div>`;
                 
-                if (percent >= 100) {
-                    html += ` <span class="text-red-600 text-xs">⚠️ ALL KEYS EXHAUSTED</span>`;
-                } else if (remaining <= 50) {
-                    html += ` <span class="text-orange-600 text-xs">(${remaining} left)</span>`;
-                }
+                // Show API-Sports usage (daily per sport)
+                const sportsUsage = getApiSportsUsage();
+                const totalSportsUsed = Object.values(sportsUsage).reduce((sum, s) => sum + s.count, 0);
+                const totalSportsLimit = Object.values(sportsUsage).reduce((sum, s) => sum + s.limit, 0);
+                
+                html += `<div class="mt-2 text-xs font-semibold text-gray-700 dark:text-gray-300">API-Sports Backup (Today):</div>`;
+                html += `<div class="text-xs text-gray-600 dark:text-gray-400">Total: ${totalSportsUsed}/${totalSportsLimit}</div>`;
+                
+                // Show individual sports
+                const sportIcons = { football: '⚽', basketball: '🏀', baseball: '⚾', americanfootball: '🏈', hockey: '🏒' };
+                Object.entries(sportsUsage).forEach(([sport, data]) => {
+                    if (data.count > 0) {
+                        const icon = sportIcons[sport] || '🎯';
+                        const sportPercent = (data.count / data.limit * 100).toFixed(0);
+                        const sportColor = sportPercent >= 100 ? 'text-red-500' : sportPercent > 90 ? 'text-orange-500' : 'text-green-500';
+                        html += `<div class="${sportColor} text-xs">${icon} ${sport}: ${data.count}/${data.limit}</div>`;
+                    }
+                });
                 
                 apiDisplay.innerHTML = html;
             }
@@ -3678,6 +3748,91 @@
         }
         
         const ai = new BettingAI();
+        
+        // API-Sports: Fetch backup data for all sports (100 calls/day each)
+        async function fetchApiSportsData(sportType) {
+            const sportsUsage = getApiSportsUsage();
+            
+            if (!API_SPORTS_ENDPOINTS[sportType]) {
+                console.log(`❌ Sport type ${sportType} not supported`);
+                return [];
+            }
+            
+            if (sportsUsage[sportType].count >= sportsUsage[sportType].limit) {
+                console.log(`⚠️ API-Sports ${sportType} daily limit reached`);
+                return [];
+            }
+            
+            try {
+                const endpoint = API_SPORTS_ENDPOINTS[sportType];
+                let data = [];
+                
+                // Fetch based on sport type
+                if (sportType === 'football') {
+                    // Soccer leagues
+                    const leagues = [39, 140, 78, 135, 61]; // Premier, La Liga, Bundesliga, Serie A, Ligue 1
+                    const response = await fetch(`${endpoint.url}/fixtures?league=${leagues[0]}&season=2025&next=10`, {
+                        headers: {
+                            'x-rapidapi-key': API_SPORTS_KEY,
+                            'x-rapidapi-host': endpoint.url.replace('https://', '')
+                        }
+                    });
+                    trackApiSportsCall('football');
+                    if (response.ok) data = await response.json();
+                    
+                } else if (sportType === 'basketball') {
+                    // NBA games
+                    const response = await fetch(`${endpoint.url}/games?league=12&season=2024-2025`, {
+                        headers: {
+                            'x-rapidapi-key': API_SPORTS_KEY,
+                            'x-rapidapi-host': endpoint.url.replace('https://', '')
+                        }
+                    });
+                    trackApiSportsCall('basketball');
+                    if (response.ok) data = await response.json();
+                    
+                } else if (sportType === 'baseball') {
+                    // MLB games
+                    const response = await fetch(`${endpoint.url}/games?league=1&season=2025`, {
+                        headers: {
+                            'x-rapidapi-key': API_SPORTS_KEY,
+                            'x-rapidapi-host': endpoint.url.replace('https://', '')
+                        }
+                    });
+                    trackApiSportsCall('baseball');
+                    if (response.ok) data = await response.json();
+                    
+                } else if (sportType === 'americanfootball') {
+                    // NFL games
+                    const response = await fetch(`${endpoint.url}/games?league=1&season=2024`, {
+                        headers: {
+                            'x-rapidapi-key': API_SPORTS_KEY,
+                            'x-rapidapi-host': endpoint.url.replace('https://', '')
+                        }
+                    });
+                    trackApiSportsCall('americanfootball');
+                    if (response.ok) data = await response.json();
+                    
+                } else if (sportType === 'hockey') {
+                    // NHL games
+                    const response = await fetch(`${endpoint.url}/games?league=57&season=2024`, {
+                        headers: {
+                            'x-rapidapi-key': API_SPORTS_KEY,
+                            'x-rapidapi-host': endpoint.url.replace('https://', '')
+                        }
+                    });
+                    trackApiSportsCall('hockey');
+                    if (response.ok) data = await response.json();
+                }
+                
+                console.log(`🎯 API-Sports ${sportType}: Fetched backup data`);
+                return data;
+                
+            } catch (error) {
+                console.error(`❌ API-Sports ${sportType} error:`, error);
+                return [];
+            }
+        }
         
         function selectSport(sportKey, sportName) {
             currentSport = sportKey;
