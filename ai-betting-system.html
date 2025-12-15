@@ -679,22 +679,62 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        // Configuration
-        const ODDS_API_KEY = '28beb23f0f84301404f98f2951928b52';
+        // Configuration - Dual API Keys with Auto-Rotation
+        const API_KEYS = [
+            { key: '28beb23f0f84301404f98f2951928b52', limit: 500, name: 'Primary' },
+            { key: '4d835fe41ae1bbedccace3fb89230de2', limit: 100, name: 'Secondary' }
+        ];
         let currentSport = null;
         let currentSportName = '';
         let predictions = [];
         
-        // API Usage Tracking
+        // API Usage Tracking - Multi-Key Support
+        function getActiveApiKey() {
+            const now = new Date();
+            const monthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
+            const apiUsage = JSON.parse(localStorage.getItem('apiUsageMulti') || '{}');
+            
+            // Initialize tracking for all keys
+            if (!apiUsage[monthKey]) {
+                apiUsage[monthKey] = API_KEYS.map(k => ({ 
+                    name: k.name, 
+                    count: 0, 
+                    limit: k.limit,
+                    key: k.key 
+                }));
+            }
+            
+            // Find first key with available calls
+            for (let keyInfo of apiUsage[monthKey]) {
+                if (keyInfo.count < keyInfo.limit) {
+                    return keyInfo;
+                }
+            }
+            
+            // All keys exhausted - return primary anyway (will show error)
+            return apiUsage[monthKey][0];
+        }
+        
         function trackApiCall() {
             const now = new Date();
             const monthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
-            const apiUsage = JSON.parse(localStorage.getItem('apiUsage') || '{}');
+            const apiUsage = JSON.parse(localStorage.getItem('apiUsageMulti') || '{}');
             
             if (!apiUsage[monthKey]) {
-                apiUsage[monthKey] = { count: 0, limit: 500 };
+                apiUsage[monthKey] = API_KEYS.map(k => ({ 
+                    name: k.name, 
+                    count: 0, 
+                    limit: k.limit,
+                    key: k.key 
+                }));
             }
-            apiUsage[monthKey].count++;
+            
+            // Increment the active key's usage
+            const activeKey = getActiveApiKey();
+            const keyIndex = apiUsage[monthKey].findIndex(k => k.key === activeKey.key);
+            if (keyIndex !== -1) {
+                apiUsage[monthKey][keyIndex].count++;
+            }
             
             // Clean up old months
             const currentMonth = monthKey;
@@ -702,7 +742,7 @@
                 if (key !== currentMonth) delete apiUsage[key];
             });
             
-            localStorage.setItem('apiUsage', JSON.stringify(apiUsage));
+            localStorage.setItem('apiUsageMulti', JSON.stringify(apiUsage));
             updateApiUsageDisplay();
             return apiUsage[monthKey];
         }
@@ -710,35 +750,59 @@
         function getApiUsage() {
             const now = new Date();
             const monthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
-            const apiUsage = JSON.parse(localStorage.getItem('apiUsage') || '{}');
-            return apiUsage[monthKey] || { count: 0, limit: 500 };
+            const apiUsage = JSON.parse(localStorage.getItem('apiUsageMulti') || '{}');
+            
+            if (!apiUsage[monthKey]) {
+                return API_KEYS.map(k => ({ name: k.name, count: 0, limit: k.limit }));
+            }
+            return apiUsage[monthKey];
         }
         
         function canMakeApiCall(callsNeeded = 1) {
-            const usage = getApiUsage();
-            const remaining = usage.limit - usage.count;
+            const usageArray = getApiUsage();
+            const totalUsed = usageArray.reduce((sum, k) => sum + k.count, 0);
+            const totalLimit = usageArray.reduce((sum, k) => sum + k.limit, 0);
+            const remaining = totalLimit - totalUsed;
+            
             return {
                 allowed: remaining >= callsNeeded,
                 remaining: remaining,
                 needed: callsNeeded,
-                current: usage.count,
-                limit: usage.limit
+                current: totalUsed,
+                limit: totalLimit,
+                keys: usageArray
             };
         }
         
         function updateApiUsageDisplay() {
-            const usage = getApiUsage();
-            const percent = (usage.count / usage.limit * 100).toFixed(0);
-            const remaining = usage.limit - usage.count;
+            const usageArray = getApiUsage();
+            const totalUsed = usageArray.reduce((sum, k) => sum + k.count, 0);
+            const totalLimit = usageArray.reduce((sum, k) => sum + k.limit, 0);
+            const percent = (totalUsed / totalLimit * 100).toFixed(0);
+            const remaining = totalLimit - totalUsed;
             const color = percent >= 100 ? 'text-red-600 font-black' : percent > 90 ? 'text-red-600' : percent > 70 ? 'text-orange-600' : 'text-green-600';
             const apiDisplay = document.getElementById('apiUsage');
+            
             if (apiDisplay) {
-                apiDisplay.innerHTML = `<span class="${color} font-bold">${usage.count}/${usage.limit}</span> calls`;
+                // Show total usage across all keys
+                let html = `<span class="${color} font-bold">${totalUsed}/${totalLimit}</span> calls`;
+                
+                // Show individual key status
+                const keyDetails = usageArray.map(k => {
+                    const keyPercent = (k.count / k.limit * 100).toFixed(0);
+                    const keyColor = keyPercent >= 100 ? 'text-red-500' : keyPercent > 90 ? 'text-orange-500' : 'text-green-500';
+                    return `<span class="${keyColor} text-xs">${k.name}: ${k.count}/${k.limit}</span>`;
+                }).join(' • ');
+                
+                html += `<br><span class="text-xs text-gray-600 dark:text-gray-400">${keyDetails}</span>`;
+                
                 if (percent >= 100) {
-                    apiDisplay.innerHTML += ` <span class="text-red-600 text-xs">⚠️ LIMIT REACHED</span>`;
+                    html += ` <span class="text-red-600 text-xs">⚠️ ALL KEYS EXHAUSTED</span>`;
                 } else if (remaining <= 50) {
-                    apiDisplay.innerHTML += ` <span class="text-orange-600 text-xs">(${remaining} left)</span>`;
+                    html += ` <span class="text-orange-600 text-xs">(${remaining} left)</span>`;
                 }
+                
+                apiDisplay.innerHTML = html;
             }
             
             // Notify when approaching limit
@@ -3689,13 +3753,15 @@
                     console.log(`Analyzing ${sport.name}...`);
                     
                     try {
-                        const url = `https://api.the-odds-api.com/v4/sports/${sport.key}/odds?apiKey=${ODDS_API_KEY}&regions=us&markets=h2h,spreads,totals&oddsFormat=american`;
+                        const activeKey = getActiveApiKey();
+                        const url = `https://api.the-odds-api.com/v4/sports/${sport.key}/odds?apiKey=${activeKey.key}&regions=us&markets=h2h,spreads,totals&oddsFormat=american`;
                         
                         // Check cache first
                         let games = apiCache.get(sport.key);
                         if (!games) {
                             const response = await fetch(url);
                             trackApiCall(); // Count this API request
+                            console.log(`📡 Using ${activeKey.name} API Key (${activeKey.count}/${activeKey.limit})`);
                             
                             if (!response.ok) continue;
                             
@@ -4124,8 +4190,10 @@
                 let allScores = [];
                 for (const sport of sports) {
                     try {
-                        const response = await fetch(`https://api.the-odds-api.com/v4/sports/${sport}/scores?apiKey=${ODDS_API_KEY}&daysFrom=3`);
+                        const activeKey = getActiveApiKey();
+                        const response = await fetch(`https://api.the-odds-api.com/v4/sports/${sport}/scores?apiKey=${activeKey.key}&daysFrom=3`);
                         trackApiCall(); // Count this API request
+                        console.log(`📡 Using ${activeKey.name} API Key for ${sport} scores (${activeKey.count}/${activeKey.limit})`);
                         if (response.ok) {
                             const scores = await response.json();
                             if (Array.isArray(scores)) {
