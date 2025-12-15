@@ -253,6 +253,9 @@
                 <div class="text-center md:text-right bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900 dark:to-blue-900 p-4 rounded-lg min-w-[180px]">
                     <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">AI Status</div>
                     <div class="text-xl font-bold text-green-600 dark:text-green-400 my-1">● Learning</div>
+                    <div class="inline-block mt-1 px-2 py-0.5 bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200 text-xs font-semibold rounded-full animate-pulse">
+                        🤖 Auto-Learning ON
+                    </div>
                     <div class="text-xs text-gray-600 dark:text-gray-300 mt-2 space-y-1">
                         <div><strong>API:</strong> <span id="apiUsage">0/500</span></div>
                         <div><strong>Storage:</strong> <span id="storageUsage">0%</span></div>
@@ -268,24 +271,24 @@
                 <div class="flex-1">
                     <div class="flex items-center gap-2 mb-2">
                         <span class="text-lg">💡</span>
-                        <span class="font-bold text-gray-900 dark:text-gray-100 text-sm">API Best Practices (500 calls/month free tier)</span>
+                        <span class="font-bold text-gray-900 dark:text-gray-100 text-sm sm:text-base">Automated Daily Schedule (500 calls/month)</span>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-gray-700 dark:text-gray-300">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm text-gray-700 dark:text-gray-300">
                         <div class="flex items-center gap-1">
                             <span class="text-green-600 dark:text-green-400">✓</span>
-                            <span><strong>Analyze once/day</strong> (~150 calls/month)</span>
+                            <span><strong>6am CT:</strong> Daily analysis (~150 calls/month)</span>
                         </div>
                         <div class="flex items-center gap-1">
                             <span class="text-green-600 dark:text-green-400">✓</span>
-                            <span><strong>Auto-settle handles results</strong> (avoid manual)</span>
+                            <span><strong>11pm CT:</strong> Auto-settlement + Learning</span>
                         </div>
                         <div class="flex items-center gap-1">
-                            <span class="text-green-600 dark:text-green-400">✓</span>
-                            <span><strong>Use within 2 hours</strong> (5-min cache)</span>
+                            <span class="text-purple-600 dark:text-purple-400">🤖</span>
+                            <span><strong>AI learns automatically</strong> after settlement</span>
                         </div>
                         <div class="flex items-center gap-1">
-                            <span class="text-green-600 dark:text-green-400">✓</span>
-                            <span><strong>Limit 30-40 bets/month</strong> to stay safe</span>
+                            <span class="text-blue-600 dark:text-blue-400">📊</span>
+                            <span><strong>10 calls/day = 300/month</strong> (safe buffer)</span>
                         </div>
                     </div>
                 </div>
@@ -363,21 +366,21 @@
         </div>
 
         <!-- Confidence Filter & Data Management -->
-        <div class="glass-card p-4">
-            <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+        <div class="glass-card p-4 md:p-5">
+            <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
                 <div class="flex-1 w-full">
-                    <label class="text-sm font-semibold text-gray-700 dark:text-gray-300">🎯 Min Confidence Filter: <span id="minConfidenceValue" class="text-purple-600">0%</span></label>
-                    <input type="range" id="minConfidenceSlider" min="0" max="95" value="0" step="5" class="w-full mt-2" oninput="updateConfidenceFilter(this.value)">
-                    <div class="flex justify-between text-xs text-gray-400 mt-1">
+                    <label class="text-sm sm:text-base font-semibold text-gray-700 dark:text-gray-300">🎯 Min Confidence Filter: <span id="minConfidenceValue" class="text-purple-600 dark:text-purple-400">0%</span></label>
+                    <input type="range" id="minConfidenceSlider" min="0" max="95" value="0" step="5" class="w-full mt-3 h-2" oninput="updateConfidenceFilter(this.value)">
+                    <div class="flex justify-between text-xs sm:text-sm text-gray-400 dark:text-gray-500 mt-2">
                         <span>All Bets</span>
                         <span>50%</span>
                         <span>Elite (95%)</span>
                     </div>
                 </div>
-                <div class="flex gap-2">
-                    <button onclick="exportData()" class="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">📥 Export</button>
-                    <button onclick="importData()" class="px-3 py-2 bg-green-500 text-white rounded hover:bg-green-600 text-sm">📤 Import</button>
-                    <button onclick="requestNotificationPermission()" class="px-3 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 text-sm" id="notifBtn">🔔</button>
+                <div class="flex flex-wrap gap-2 justify-center md:justify-end">
+                    <button onclick="exportData()" class="px-4 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all shadow hover:shadow-md active:scale-95 text-sm font-semibold min-h-[44px]">📥 Export</button>
+                    <button onclick="importData()" class="px-4 py-2.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all shadow hover:shadow-md active:scale-95 text-sm font-semibold min-h-[44px]">📤 Import</button>
+                    <button onclick="requestNotificationPermission()" class="px-4 py-2.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all shadow hover:shadow-md active:scale-95 text-sm font-semibold min-h-[44px]" id="notifBtn">🔔 Notify</button>
                 </div>
             </div>
         </div>
@@ -413,70 +416,83 @@
         </div>
 
         <!-- AI Predictions -->
-        <div class="glass-card p-6">
-            <h2 class="text-xl font-bold text-gray-900 mb-4">🎯 AI Predictions</h2>
+        <div class="glass-card p-4 md:p-6">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+                <h2 class="text-lg md:text-xl font-bold text-gray-900 dark:text-gray-100">🎯 AI Predictions</h2>
+                <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-green-100 to-blue-100 dark:from-green-900 dark:to-blue-900 rounded-full border border-green-300 dark:border-green-700">
+                    <span class="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">🤖 Auto-Learning Active</span>
+                    <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                    </span>
+                </div>
+            </div>
             <div id="predictions" class="space-y-3">
-                <div class="text-center text-gray-400 py-8">
-                    Click "Analyze Games" to start AI analysis
+                <div class="text-center text-gray-400 dark:text-gray-500 py-8">
+                    <div class="text-base sm:text-lg mb-2">Click "Analyze Games" to start AI analysis</div>
+                    <div class="text-xs sm:text-sm">AI will automatically learn from results at 11pm CT</div>
                 </div>
             </div>
         </div>
 
         <!-- Bankroll Tracker -->
         <div class="glass-card p-4 md:p-6" id="bankrollWidget">
-            <h2 class="text-lg md:text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">💰 Bankroll Management</h2>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                <div class="text-center p-2 md:p-3 bg-green-50 dark:bg-green-900 rounded-lg">
-                    <div class="text-xs md:text-sm text-gray-600 dark:text-gray-300">Current Bankroll</div>
-                    <div class="text-lg md:text-2xl font-bold text-green-600 dark:text-green-400" id="currentBankroll">$10,000</div>
+            <h2 class="text-base sm:text-lg md:text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">💰 Bankroll Management</h2>
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                <div class="text-center p-3 md:p-4 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900 dark:to-green-800 rounded-xl shadow-sm hover:shadow-md transition-all">
+                    <div class="text-xs sm:text-sm text-gray-600 dark:text-gray-300 font-medium mb-1">Current Bankroll</div>
+                    <div class="text-xl sm:text-2xl md:text-3xl font-bold text-green-600 dark:text-green-400" id="currentBankroll">$10,000</div>
                 </div>
-                <div class="text-center p-2 md:p-3 bg-blue-50 dark:bg-blue-900 rounded-lg">
-                    <div class="text-xs md:text-sm text-gray-600 dark:text-gray-300">Total P&L</div>
-                    <div class="text-lg md:text-2xl font-bold text-blue-600 dark:text-blue-400" id="totalPnL">$0.00</div>
+                <div class="text-center p-3 md:p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900 dark:to-blue-800 rounded-xl shadow-sm hover:shadow-md transition-all">
+                    <div class="text-xs sm:text-sm text-gray-600 dark:text-gray-300 font-medium mb-1">Total P&L</div>
+                    <div class="text-xl sm:text-2xl md:text-3xl font-bold text-blue-600 dark:text-blue-400" id="totalPnL">$0.00</div>
                 </div>
-                <div class="text-center p-2 md:p-3 bg-purple-50 dark:bg-purple-900 rounded-lg">
-                    <div class="text-xs md:text-sm text-gray-600 dark:text-gray-300">ROI</div>
-                    <div class="text-lg md:text-2xl font-bold text-purple-600 dark:text-purple-400" id="roiPercent">0.0%</div>
+                <div class="text-center p-3 md:p-4 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900 dark:to-purple-800 rounded-xl shadow-sm hover:shadow-md transition-all">
+                    <div class="text-xs sm:text-sm text-gray-600 dark:text-gray-300 font-medium mb-1">ROI</div>
+                    <div class="text-xl sm:text-2xl md:text-3xl font-bold text-purple-600 dark:text-purple-400" id="roiPercent">0.0%</div>
                 </div>
-                <div class="text-center p-2 md:p-3 bg-orange-50 dark:bg-orange-900 rounded-lg">
-                    <div class="text-xs md:text-sm text-gray-600 dark:text-gray-300">Max Drawdown</div>
-                    <div class="text-lg md:text-2xl font-bold text-orange-600 dark:text-orange-400" id="maxDrawdown">0.0%</div>
+                <div class="text-center p-3 md:p-4 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900 dark:to-orange-800 rounded-xl shadow-sm hover:shadow-md transition-all">
+                    <div class="text-xs sm:text-sm text-gray-600 dark:text-gray-300 font-medium mb-1">Max Drawdown</div>
+                    <div class="text-xl sm:text-2xl md:text-3xl font-bold text-orange-600 dark:text-orange-400" id="maxDrawdown">0.0%</div>
                 </div>
             </div>
-            <div id="stopLossAlert" style="display: none;" class="mt-3 md:mt-4 p-2 md:p-3 bg-red-100 dark:bg-red-900 border-l-4 border-red-500 text-red-700 dark:text-red-300 rounded text-sm md:text-base">
+            <div id="stopLossAlert" style="display: none;" class="mt-4 p-3 md:p-4 bg-gradient-to-r from-red-100 to-red-50 dark:from-red-900 dark:to-red-800 border-l-4 border-red-500 text-red-700 dark:text-red-300 rounded-lg text-sm md:text-base shadow-md">
                 <strong>🛑 STOP LOSS TRIGGERED</strong> - Bankroll has dropped 20% from peak. Review strategy before continuing.
             </div>
         </div>
 
         <!-- Learning Insights -->
         <div class="glass-card p-4 md:p-6">
-            <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-2">
-                <h2 class="text-lg md:text-xl font-bold text-gray-900 dark:text-gray-100">📊 AI Learning Insights</h2>
-                <button onclick="createModelSnapshot()" class="px-3 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 text-xs md:text-sm" id="snapshotBtn">💾 Snapshot</button>
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
+                <h2 class="text-base sm:text-lg md:text-xl font-bold text-gray-900 dark:text-gray-100">📊 AI Learning Insights</h2>
+                <button onclick="createModelSnapshot()" class="px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all shadow hover:shadow-md text-xs sm:text-sm font-semibold active:scale-95" id="snapshotBtn">💾 Save Snapshot</button>
             </div>
             <div id="insights" class="space-y-4">
-                <div class="text-center text-gray-400 py-8">
-                    AI insights will appear after learning cycles
+                <div class="text-center text-gray-400 dark:text-gray-500 py-8">
+                    <div class="text-base sm:text-lg mb-2">🤖 AI insights will appear after learning cycles</div>
+                    <div class="text-xs sm:text-sm">AI learns automatically after every settlement at 11pm CT</div>
                 </div>
             </div>
         </div>
 
         <!-- Performance Analytics -->
         <div class="glass-card p-4 md:p-6">
-            <h2 class="text-lg md:text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">📈 Performance Analytics</h2>
-            <canvas id="performanceChart" height="80"></canvas>
-            <div class="grid grid-cols-3 gap-2 md:gap-4 mt-4 text-xs md:text-sm">
-                <div class="text-center p-2 bg-green-50 dark:bg-green-900 rounded">
-                    <div class="text-gray-500 dark:text-gray-400">7-Day WR</div>
-                    <div class="text-lg md:text-xl font-bold text-green-600 dark:text-green-400" id="weekWinRate">-</div>
+            <h2 class="text-base sm:text-lg md:text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">📈 Performance Analytics</h2>
+            <div class="bg-white dark:bg-gray-800 p-2 rounded-lg">
+                <canvas id="performanceChart" height="80"></canvas>
+            </div>
+            <div class="grid grid-cols-3 gap-3 md:gap-4 mt-4">
+                <div class="text-center p-3 md:p-4 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900 dark:to-green-800 rounded-xl shadow-sm">
+                    <div class="text-xs sm:text-sm text-gray-600 dark:text-gray-400 font-medium mb-1">7-Day WR</div>
+                    <div class="text-lg sm:text-xl md:text-2xl font-bold text-green-600 dark:text-green-400" id="weekWinRate">-</div>
                 </div>
-                <div class="text-center p-2 bg-blue-50 dark:bg-blue-900 rounded">
-                    <div class="text-gray-500 dark:text-gray-400">ROI (Units)</div>
-                    <div class="text-lg md:text-xl font-bold text-blue-600 dark:text-blue-400" id="roiUnits">-</div>
+                <div class="text-center p-3 md:p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900 dark:to-blue-800 rounded-xl shadow-sm">
+                    <div class="text-xs sm:text-sm text-gray-600 dark:text-gray-400 font-medium mb-1">ROI (Units)</div>
+                    <div class="text-lg sm:text-xl md:text-2xl font-bold text-blue-600 dark:text-blue-400" id="roiUnits">-</div>
                 </div>
-                <div class="text-center p-2 bg-purple-50 dark:bg-purple-900 rounded">
-                    <div class="text-gray-500 dark:text-gray-400">Streak</div>
-                    <div class="text-lg md:text-xl font-bold text-purple-600 dark:text-purple-400" id="currentStreakDisplay">-</div>
+                <div class="text-center p-3 md:p-4 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900 dark:to-purple-800 rounded-xl shadow-sm">
+                    <div class="text-xs sm:text-sm text-gray-600 dark:text-gray-400 font-medium mb-1">Streak</div>
+                    <div class="text-lg sm:text-xl md:text-2xl font-bold text-purple-600 dark:text-purple-400" id="currentStreakDisplay">-</div>
                 </div>
             </div>
         </div>
