@@ -1132,7 +1132,25 @@
                             confidence: adjustedConfidence, 
                             odds: pick.odds, 
                             units: kellyUnits 
-                        });\n                        \n                        // Only proceed if simulation shows positive expected value\n                        if (simulation.roi < 2) {\n                            kellyUnits = Math.max(1, Math.floor(kellyUnits * 0.5)); // Reduce size\n                        }\n                    }\n                    \n                    // Ensemble model weighting\n                    const ensembleWeight = this.model.advancedMetrics.ensembleWeights.main;\n                    pick.units = Math.max(1, Math.min(10, Math.round(kellyUnits * ensembleWeight)));\n                    pick.adjustedConfidence = adjustedConfidence;\n                    \n                    // Store original for comparison\n                    pick.baseConfidence = pick.confidence;\n                    pick.confidence = Math.round(adjustedConfidence);\n                } else {\n                    pick.units = 1; // Default to 1 unit while learning\n                }
+                        });
+                        
+                        // Only proceed if simulation shows positive expected value
+                        if (simulation.roi < 2) {
+                            kellyUnits = Math.max(1, Math.floor(kellyUnits * 0.5)); // Reduce size
+                        }
+                    }
+                    
+                    // Ensemble model weighting
+                    const ensembleWeight = this.model.advancedMetrics.ensembleWeights.main;
+                    pick.units = Math.max(1, Math.min(10, Math.round(kellyUnits * ensembleWeight)));
+                    pick.adjustedConfidence = adjustedConfidence;
+                    
+                    // Store original for comparison
+                    pick.baseConfidence = pick.confidence;
+                    pick.confidence = Math.round(adjustedConfidence);
+                } else {
+                    pick.units = 1; // Default to 1 unit while learning
+                }
                 
                 // Store opening odds for CLV tracking and line movement analysis
                 pick.openingOdds = pick.odds;
@@ -1147,7 +1165,23 @@
                         magnitude: Math.abs(pick.odds - movement.previousOdds),
                         isSharpMove: Math.abs(pick.odds - movement.previousOdds) > 20, // 20+ point move = sharp
                         timestamp: movement.lastUpdate
-                    };\n                    \n                    // Adjust confidence based on line movement\n                    if (pick.lineMovement.isSharpMove && pick.lineMovement.direction === 'up') {\n                        // Sharp money on this side - boost confidence\n                        pick.confidence = Math.min(99, pick.confidence * 1.08);\n                        pick.aiReasoning.push(`Sharp money detected: ${pick.lineMovement.magnitude} point move`);\n                    }\n                } else {\n                    // Store this as baseline for future comparison\n                    this.model.advancedMetrics.lineMovement[gameKey] = {\n                        previousOdds: pick.odds,\n                        lastUpdate: Date.now()\n                    };\n                }\n                \n                return pick;
+                    };
+                    
+                    // Adjust confidence based on line movement
+                    if (pick.lineMovement.isSharpMove && pick.lineMovement.direction === 'up') {
+                        // Sharp money on this side - boost confidence
+                        pick.confidence = Math.min(99, pick.confidence * 1.08);
+                        pick.aiReasoning.push(`Sharp money detected: ${pick.lineMovement.magnitude} point move`);
+                    }
+                } else {
+                    // Store this as baseline for future comparison
+                    this.model.advancedMetrics.lineMovement[gameKey] = {
+                        previousOdds: pick.odds,
+                        lastUpdate: Date.now()
+                    };
+                }
+                
+                return pick;
             }
             
             calculateAverage(arr) {
