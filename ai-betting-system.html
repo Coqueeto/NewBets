@@ -1240,7 +1240,25 @@
                     pick.showTier = false;
                 }
                 
-                // Mark super elite bets when AI has 95%+ win rate
+                // AI-LEARNED MONEY MAKER DETECTION
+                // After 20+ bets, AI determines if this matches learned winning patterns
+                if (this.model.totalBets >= 20 && this.model.moneyMakerPatterns) {
+                    const moneyMakerScore = this.calculateMoneyMakerScore(pick);
+                    
+                    // 💰 MONEY MAKER = AI learned this pattern wins consistently
+                    if (moneyMakerScore >= 85 && aiWinRate >= 0.65) {
+                        pick.superElite = true;
+                        pick.aiMastery = true;
+                        pick.moneyMakerScore = moneyMakerScore;
+                        pick.aiReasoning.push(`💰 MONEY MAKER: AI learned pattern (${moneyMakerScore}% match)`);
+                    } else if (moneyMakerScore >= 75 && aiWinRate >= 0.60) {
+                        pick.highProbability = true;
+                        pick.moneyMakerScore = moneyMakerScore;
+                        pick.aiReasoning.push(`🔥 High probability based on AI learning (${moneyMakerScore}% match)`);
+                    }
+                }
+                
+                // Legacy: Mark super elite when AI achieves 95%+ win rate
                 if (aiWinRate >= 0.95 && this.model.totalBets >= 30) {
                     pick.superElite = true;
                     pick.aiMastery = true;
@@ -1433,7 +1451,7 @@
                 this.model.patterns.dayOfWeekSuccess[dayOfWeek].total++;
                 if (won) this.model.patterns.dayOfWeekSuccess[dayOfWeek].wins++;
                 
-                // Add to bet history (keep last 100)
+                // Add to bet history with detailed pattern data for learning
                 this.model.betHistory.unshift({
                     date: new Date().toISOString(),
                     game: prediction.game,
@@ -1441,11 +1459,21 @@
                     betType: betType,
                     betDetails: prediction.betDetails || prediction.team,
                     team: prediction.team,
+                    opponent: prediction.opponent,
                     position: betPosition,
                     odds: prediction.odds,
                     confidence: prediction.confidence,
+                    discrepancy: prediction.discrepancy,
                     won: won,
-                    finalScore: prediction.finalScore
+                    finalScore: prediction.finalScore,
+                    // Pattern data for AI learning
+                    dayOfWeek: gameDate.toLocaleDateString('en-US', { weekday: 'long' }),
+                    month: gameDate.getMonth(),
+                    hour: gameDate.getHours(),
+                    wasContextual: prediction.contextual || false,
+                    wasPublicFade: prediction.publicFade || false,
+                    weatherImpact: prediction.weatherImpact || null,
+                    injuryImpact: prediction.injuryImpact || null
                 });
                 
                 // Keep only last 100 bets
@@ -1464,7 +1492,90 @@
                 // Auto-learn after every result
                 this.learn();
                 
+                // Analyze if this was a Money Maker bet (learn what makes winners)
+                if (won && this.model.totalBets >= 10) {
+                    this.learnMoneyMakerPatterns(prediction);
+                }
+                
                 this.saveModel();
+            }
+            
+            // Learn what makes a bet a MONEY MAKER
+            learnMoneyMakerPatterns(winningBet) {
+                if (!this.model.moneyMakerPatterns) {
+                    this.model.moneyMakerPatterns = {
+                        teams: {}, // Which teams win most
+                        betTypes: {}, // ML, Spread, Total performance
+                        homeAway: { home: 0, away: 0 }, // Position preference
+                        oddsRanges: {}, // Which odds ranges win
+                        discrepancyRanges: {}, // High discrepancy = winner?
+                        contextualFactors: { rivalry: 0, primeTime: 0, backToBack: 0 },
+                        publicFade: 0, // Fading public success rate
+                        minConfidence: 50, // Learned minimum confidence
+                        minDiscrepancy: 1.5 // Learned minimum discrepancy
+                    };
+                }
+                
+                const patterns = this.model.moneyMakerPatterns;
+                
+                // Learn team success
+                if (!patterns.teams[winningBet.team]) {
+                    patterns.teams[winningBet.team] = { wins: 0, total: 0, winRate: 0 };
+                }
+                patterns.teams[winningBet.team].wins++;
+                patterns.teams[winningBet.team].total++;
+                patterns.teams[winningBet.team].winRate = patterns.teams[winningBet.team].wins / patterns.teams[winningBet.team].total;
+                
+                // Learn bet type success
+                const betType = winningBet.type || 'Moneyline';
+                if (!patterns.betTypes[betType]) {
+                    patterns.betTypes[betType] = { wins: 0, total: 0, winRate: 0 };
+                }
+                patterns.betTypes[betType].wins++;
+                patterns.betTypes[betType].total++;
+                patterns.betTypes[betType].winRate = patterns.betTypes[betType].wins / patterns.betTypes[betType].total;
+                
+                // Learn home/away preference
+                const position = winningBet.isHomeTeam ? 'home' : 'away';
+                patterns.homeAway[position]++;
+                
+                // Learn odds ranges that win
+                const oddsRange = Math.floor(Math.abs(winningBet.odds) / 50) * 50;
+                if (!patterns.oddsRanges[oddsRange]) patterns.oddsRanges[oddsRange] = { wins: 0, total: 0 };
+                patterns.oddsRanges[oddsRange].wins++;
+                patterns.oddsRanges[oddsRange].total++;
+                
+                // Learn discrepancy patterns
+                const discRange = Math.floor(winningBet.discrepancy / 2) * 2;
+                if (!patterns.discrepancyRanges[discRange]) patterns.discrepancyRanges[discRange] = { wins: 0, total: 0 };
+                patterns.discrepancyRanges[discRange].wins++;
+                patterns.discrepancyRanges[discRange].total++;
+                
+                // Learn contextual factors
+                if (winningBet.contextual) {
+                    if (winningBet.isRivalry) patterns.contextualFactors.rivalry++;
+                    if (winningBet.isPrimeTime) patterns.contextualFactors.primeTime++;
+                    if (winningBet.isBackToBack) patterns.contextualFactors.backToBack++;
+                }
+                
+                // Learn public fade success
+                if (winningBet.publicFade) patterns.publicFade++;
+                
+                // Adjust learned thresholds based on winning patterns
+                if (this.model.totalBets >= 30) {
+                    const avgWinningConfidence = this.model.betHistory
+                        .filter(b => b.won && b.confidence)
+                        .slice(0, 20)
+                        .reduce((sum, b) => sum + b.confidence, 0) / 20;
+                    
+                    const avgWinningDiscrepancy = this.model.betHistory
+                        .filter(b => b.won && b.discrepancy)
+                        .slice(0, 20)
+                        .reduce((sum, b) => sum + b.discrepancy, 0) / 20;
+                    
+                    patterns.minConfidence = Math.floor(avgWinningConfidence * 0.9);
+                    patterns.minDiscrepancy = avgWinningDiscrepancy * 0.8;
+                }
             }
             
             learn() {
@@ -1702,6 +1813,91 @@
                     // Consistently getting worse odds - need to be more selective
                     this.model.adaptiveThresholds.minDiscrepancy = Math.min(5.0, this.model.adaptiveThresholds.minDiscrepancy + 0.3);
                 }
+            }
+            
+            // AI-LEARNED MONEY MAKER SCORING
+            // Calculates how well a bet matches learned winning patterns
+            calculateMoneyMakerScore(pick) {
+                if (!this.model.moneyMakerPatterns || this.model.totalBets < 20) return 0;
+                
+                const patterns = this.model.moneyMakerPatterns;
+                let score = 50; // Base score
+                let factors = [];
+                
+                // 1. Team success pattern (0-20 points)
+                const teamPattern = patterns.teams[pick.team];
+                if (teamPattern && teamPattern.total >= 3) {
+                    const teamBonus = Math.min(20, teamPattern.winRate * 20);
+                    score += teamBonus;
+                    if (teamBonus >= 15) factors.push(`${pick.team} wins ${(teamPattern.winRate * 100).toFixed(0)}%`);
+                }
+                
+                // 2. Bet type success (0-15 points)
+                const betType = pick.type || 'Moneyline';
+                const betTypePattern = patterns.betTypes[betType];
+                if (betTypePattern && betTypePattern.total >= 3) {
+                    const betTypeBonus = Math.min(15, betTypePattern.winRate * 15);
+                    score += betTypeBonus;
+                    if (betTypeBonus >= 10) factors.push(`${betType} wins ${(betTypePattern.winRate * 100).toFixed(0)}%`);
+                }
+                
+                // 3. Home/Away preference (0-10 points)
+                const position = pick.isHomeTeam ? 'home' : 'away';
+                const totalHomeAway = patterns.homeAway.home + patterns.homeAway.away;
+                if (totalHomeAway >= 10) {
+                    const positionWinRate = patterns.homeAway[position] / totalHomeAway;
+                    if (positionWinRate > 0.55) {
+                        score += 10;
+                        factors.push(`${position} advantage`);
+                    }
+                }
+                
+                // 4. Odds range success (0-10 points)
+                const oddsRange = Math.floor(Math.abs(pick.odds) / 50) * 50;
+                const oddsPattern = patterns.oddsRanges[oddsRange];
+                if (oddsPattern && oddsPattern.total >= 3) {
+                    const oddsWinRate = oddsPattern.wins / oddsPattern.total;
+                    if (oddsWinRate > 0.6) {
+                        score += 10;
+                        factors.push(`odds range ${oddsRange} wins ${(oddsWinRate * 100).toFixed(0)}%`);
+                    }
+                }
+                
+                // 5. Discrepancy pattern (0-15 points)
+                const discRange = Math.floor(pick.discrepancy / 2) * 2;
+                const discPattern = patterns.discrepancyRanges[discRange];
+                if (discPattern && discPattern.total >= 3) {
+                    const discWinRate = discPattern.wins / discPattern.total;
+                    if (discWinRate > 0.6) {
+                        score += 15;
+                        factors.push(`${discRange}% discrepancy wins ${(discWinRate * 100).toFixed(0)}%`);
+                    }
+                }
+                
+                // 6. Contextual factors (0-10 points)
+                if (pick.contextual) {
+                    if (pick.isRivalry && patterns.contextualFactors.rivalry >= 3) {
+                        score += 5;
+                        factors.push('rivalry game');
+                    }
+                    if (pick.isPrimeTime && patterns.contextualFactors.primeTime >= 3) {
+                        score += 3;
+                        factors.push('prime time');
+                    }
+                }
+                
+                // 7. Public fade success (0-10 points)
+                if (pick.publicFade && patterns.publicFade >= 5) {
+                    score += 10;
+                    factors.push('fading public');
+                }
+                
+                // Store reasoning for display
+                if (factors.length > 0) {
+                    pick.moneyMakerFactors = factors;
+                }
+                
+                return Math.min(100, score);
             }
             
             // Advanced Learning Method 5: Correlation Analysis
@@ -2120,6 +2316,49 @@
                     insights.push(`**Top Teams**: ${topTeams.map(t => `${t.team} (${t.rate}%)`).join(', ')}`);
                 }
                 
+                // AI-LEARNED MONEY MAKER PATTERNS
+                if (this.model.moneyMakerPatterns && this.model.totalBets >= 20) {
+                    const patterns = this.model.moneyMakerPatterns;
+                    insights.push(`\n**💰 AI-LEARNED MONEY MAKER PATTERNS:**`);
+                    
+                    // Best bet types
+                    const bestBetTypes = Object.entries(patterns.betTypes)
+                        .filter(([_, data]) => data.total >= 5)
+                        .sort((a, b) => b[1].winRate - a[1].winRate)
+                        .slice(0, 2);
+                    if (bestBetTypes.length > 0) {
+                        insights.push(`  🎯 Best Bet Types: ${bestBetTypes.map(([type, data]) => `${type} ${(data.winRate * 100).toFixed(0)}%`).join(', ')}`);
+                    }
+                    
+                    // Best teams
+                    const bestTeams = Object.entries(patterns.teams)
+                        .filter(([_, data]) => data.total >= 3)
+                        .sort((a, b) => b[1].winRate - a[1].winRate)
+                        .slice(0, 3);
+                    if (bestTeams.length > 0) {
+                        insights.push(`  🏆 Money Teams: ${bestTeams.map(([team, data]) => `${team} ${(data.winRate * 100).toFixed(0)}%`).join(', ')}`);
+                    }
+                    
+                    // Home/Away preference
+                    const totalHA = patterns.homeAway.home + patterns.homeAway.away;
+                    if (totalHA >= 10) {
+                        const homeRate = (patterns.homeAway.home / totalHA * 100).toFixed(0);
+                        const awayRate = (patterns.homeAway.away / totalHA * 100).toFixed(0);
+                        insights.push(`  🏠 Position: Home ${homeRate}% | Away ${awayRate}%`);
+                    }
+                    
+                    // Learned thresholds
+                    insights.push(`  📊 AI Thresholds: ${patterns.minConfidence.toFixed(0)}% confidence, ${patterns.minDiscrepancy.toFixed(1)}% discrepancy`);
+                    
+                    // Special factors
+                    if (patterns.publicFade >= 5) {
+                        insights.push(`  📢 Fading public works: ${patterns.publicFade} wins`);
+                    }
+                    if (patterns.contextualFactors.rivalry >= 3) {
+                        insights.push(`  🔥 Rivalry games win: ${patterns.contextualFactors.rivalry} times`);
+                    }
+                }
+                
                 // Bankroll Management Section
                 if (this.model.bankroll) {
                     insights.push(`\n**💰 Bankroll Management:**`);
@@ -2445,18 +2684,39 @@
                 
                 return `
                 <div class="border-2 ${borderClass} ${bgClass} rounded-lg p-4 hover:border-purple-400 transition slide-in">
-                    <!-- Super Elite Money Alert (AI 95%+ Win Rate) -->
-                    ${p.superElite && p.showTier && !p.settled ? `
+                    <!-- Super Elite Money Alert (AI-Learned Pattern) -->
+                    ${p.superElite && !p.settled ? `
                         <div class="mb-3 p-4 bg-gradient-to-r from-yellow-400 via-green-400 to-yellow-400 rounded-lg border-4 border-yellow-600 animate-pulse">
                             <div class="text-center">
                                 <div class="text-3xl mb-2">💰 💎 💰 MONEY MAKER 💰 💎 💰</div>
-                                <div class="text-lg font-black text-gray-900">AI MASTER PICK - ${p.confidence.toFixed(0)}% CONFIDENCE</div>
+                                <div class="text-lg font-black text-gray-900">AI LEARNED PATTERN - ${p.confidence.toFixed(0)}% CONFIDENCE</div>
+                                ${p.moneyMakerScore ? `<div class="text-sm font-bold text-gray-800">Pattern Match: ${p.moneyMakerScore.toFixed(0)}%</div>` : ''}
+                                ${p.moneyMakerFactors && p.moneyMakerFactors.length > 0 ? `
+                                    <div class="text-xs text-gray-800 mt-2 font-semibold">
+                                        🧠 AI Why: ${p.moneyMakerFactors.join(' • ')}
+                                    </div>
+                                ` : ''}
                                 <div class="text-sm font-bold text-gray-800 mt-2">POTENTIAL PAYOUT:</div>
                                 <div class="flex justify-around mt-2 text-gray-900 font-bold">
                                     <div>$100 → <span class="text-green-700 text-xl">$${payout100.toFixed(0)}</span></div>
                                     <div>$500 → <span class="text-green-700 text-xl">$${payout500.toFixed(0)}</span></div>
                                     <div>$1000 → <span class="text-green-700 text-2xl">$${payout1000.toFixed(0)}</span></div>
                                 </div>
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    <!-- High Probability Alert (AI-Learned but not quite Money Maker) -->
+                    ${p.highProbability && !p.superElite && !p.settled ? `
+                        <div class="mb-3 p-3 bg-gradient-to-r from-orange-400 to-red-400 rounded-lg border-2 border-orange-600">
+                            <div class="text-center">
+                                <div class="text-2xl mb-1">🔥 HIGH PROBABILITY 🔥</div>
+                                <div class="text-sm font-bold text-white">AI Pattern Match: ${p.moneyMakerScore.toFixed(0)}%</div>
+                                ${p.moneyMakerFactors && p.moneyMakerFactors.length > 0 ? `
+                                    <div class="text-xs text-white mt-1">
+                                        🧠 ${p.moneyMakerFactors.slice(0, 2).join(' • ')}
+                                    </div>
+                                ` : ''}
                             </div>
                         </div>
                     ` : ''}
