@@ -1988,6 +1988,11 @@
                     this.learnMoneyMakerPatterns(prediction);
                 }
                 
+                // CRITICAL: Learn from LOSSES - what patterns to avoid
+                if (!won && this.model.totalBets >= 10) {
+                    this.learnLosingPatterns(prediction);
+                }
+                
                 this.saveModel();
             }
             
@@ -2089,6 +2094,19 @@
                     } else {
                         this.model.weights.recentMomentum = 0;
                     }
+                    
+                    // CRITICAL: Losing streak protection (3+ losses in a row)
+                    if (this.model.recentTrend.streakType === 'loss' && this.model.recentTrend.currentStreak >= 3) {
+                        // Significantly raise thresholds during losing streaks
+                        this.model.adaptiveThresholds.minConfidence = Math.min(85, this.model.adaptiveThresholds.minConfidence + 10);
+                        this.model.adaptiveThresholds.minDiscrepancy = Math.min(6.0, this.model.adaptiveThresholds.minDiscrepancy + 1.0);
+                        console.log(`🛑 LOSING STREAK (${this.model.recentTrend.currentStreak}) - Raising standards: ${this.model.adaptiveThresholds.minConfidence}% confidence, ${this.model.adaptiveThresholds.minDiscrepancy}% edge required`);
+                    }
+                    
+                    // CRITICAL: Confidence recalibration check
+                    if (this.model.totalBets >= 30) {
+                        this.recalibrateConfidence();
+                    }
                 }
                 
                 // Adaptive thresholds based on performance
@@ -2096,20 +2114,24 @@
                     this.model.adaptiveThresholds = { minConfidence: 45, minDiscrepancy: 1.5, minOdds: -250 };
                 }
                 
-                // In early learning (< 15 bets), be more aggressive to gather data
+                // IMPROVED: Early learning (< 15 bets) - HIGH QUALITY data only
                 if (this.model.totalBets < 15) {
-                    this.model.adaptiveThresholds.minConfidence = Math.max(40, this.model.adaptiveThresholds.minConfidence - 1);
-                    this.model.adaptiveThresholds.minDiscrepancy = Math.max(1.0, this.model.adaptiveThresholds.minDiscrepancy - 0.1);
+                    // OLD: Too aggressive (40% conf, 1.0% edge) led to bad training data
+                    // NEW: Start conservative (65% conf, 3.0% edge) for clean learning
+                    this.model.adaptiveThresholds.minConfidence = 65;
+                    this.model.adaptiveThresholds.minDiscrepancy = 3.0;
+                    console.log('🌱 COLD START MODE: High quality training data only (65%+ conf, 3.0%+ edge)');
                 } else if (winRate < 0.45) {
-                    // Increase selectivity - raise thresholds
-                    this.model.weights.oddsDiscrepancy *= 1.15;
-                    this.model.weights.marketEfficiency *= 1.08;
-                    this.model.adaptiveThresholds.minConfidence = Math.min(70, this.model.adaptiveThresholds.minConfidence + 2);
-                    this.model.adaptiveThresholds.minDiscrepancy = Math.min(4.0, this.model.adaptiveThresholds.minDiscrepancy + 0.2);
+                    // CRITICAL: Poor performance - EMERGENCY MODE
+                    this.model.weights.oddsDiscrepancy *= 1.20; // Emphasize edge more
+                    this.model.weights.marketEfficiency *= 1.15;
+                    this.model.adaptiveThresholds.minConfidence = Math.min(85, this.model.adaptiveThresholds.minConfidence + 5);
+                    this.model.adaptiveThresholds.minDiscrepancy = Math.min(5.0, this.model.adaptiveThresholds.minDiscrepancy + 0.5);
+                    console.warn(`🚨 POOR PERFORMANCE (${(winRate*100).toFixed(1)}% WR) - Emergency thresholds: ${this.model.adaptiveThresholds.minConfidence.toFixed(0)}% confidence, ${this.model.adaptiveThresholds.minDiscrepancy.toFixed(1)}% edge`);
                 } else if (winRate > 0.55) {
                     // Model is working well - can be slightly less conservative
                     this.model.weights.oddsDiscrepancy *= 0.97;
-                    this.model.adaptiveThresholds.minConfidence = Math.max(42, this.model.adaptiveThresholds.minConfidence - 1);
+                    this.model.adaptiveThresholds.minConfidence = Math.max(50, this.model.adaptiveThresholds.minConfidence - 1);
                     this.model.adaptiveThresholds.minDiscrepancy = Math.max(1.3, this.model.adaptiveThresholds.minDiscrepancy - 0.1);
                 }
                 
@@ -2158,6 +2180,29 @@
                 this.optimizeEnsembleWeights();
                 
                 return this.generateInsights();
+            }
+            
+            // CRITICAL: Recalibrate confidence if AI is overconfident or underconfident
+            recalibrateConfidence() {
+                Object.keys(this.model.confidenceRanges).forEach(range => {<br/>                    const data = this.model.confidenceRanges[range];
+                    if (data.total >= 5) {
+                        const predictedWR = parseInt(range) / 100;
+                        const actualWR = data.wins / data.total;
+                        const error = Math.abs(predictedWR - actualWR);
+                        
+                        // If error > 15%, AI needs recalibration
+                        if (error > 0.15) {
+                            const calibrationFactor = actualWR / predictedWR;
+                            console.log(`📊 Recalibrating ${range}% confidence: Predicted ${(predictedWR*100).toFixed(0)}% but actual ${(actualWR*100).toFixed(0)}% (factor: ${calibrationFactor.toFixed(2)})`);
+                            
+                            // Store calibration factor for future predictions
+                            if (!this.model.confidenceCalibration) {
+                                this.model.confidenceCalibration = {};
+                            }
+                            this.model.confidenceCalibration[range] = calibrationFactor;
+                        }
+                    }
+                });
             }
             
             // Advanced Learning Method 1: Time-Decay Learning
@@ -2307,6 +2352,60 @@
             }
             
             // AI-LEARNED MONEY MAKER SCORING
+            // Learn what patterns lead to LOSSES - avoid these!
+            learnLosingPatterns(losingBet) {
+                if (!this.model.losingPatterns) {
+                    this.model.losingPatterns = {
+                        teams: {}, // Which teams lose often
+                        betTypes: {}, // Which bet types lose
+                        oddsRanges: {}, // Dangerous odds ranges
+                        lowDiscrepancy: 0, // Bets with low edge that lost
+                        overconfident: 0, // High confidence bets that lost
+                        contexts: {} // Situational losses
+                    };
+                }
+                
+                const patterns = this.model.losingPatterns;
+                
+                // Track losing teams
+                if (!patterns.teams[losingBet.team]) {
+                    patterns.teams[losingBet.team] = { losses: 0, total: 0 };
+                }
+                patterns.teams[losingBet.team].losses++;
+                patterns.teams[losingBet.team].total++;
+                
+                // Track losing bet types
+                const betType = losingBet.type || 'Moneyline';
+                if (!patterns.betTypes[betType]) {
+                    patterns.betTypes[betType] = { losses: 0, total: 0 };
+                }
+                patterns.betTypes[betType].losses++;
+                patterns.betTypes[betType].total++;
+                
+                // Track dangerous odds ranges
+                const oddsRange = Math.floor(Math.abs(losingBet.odds) / 50) * 50;
+                if (!patterns.oddsRanges[oddsRange]) patterns.oddsRanges[oddsRange] = { losses: 0, total: 0 };
+                patterns.oddsRanges[oddsRange].losses++;
+                patterns.oddsRanges[oddsRange].total++;
+                
+                // Track low-edge losses (warning sign)
+                if (losingBet.discrepancy < 3.0) {
+                    patterns.lowDiscrepancy++;
+                }
+                
+                // Track overconfidence failures
+                if (losingBet.confidence >= 80) {
+                    patterns.overconfident++;
+                }
+                
+                // Track contextual losses
+                if (losingBet.contextual) {
+                    const context = losingBet.isRivalry ? 'rivalry' : losingBet.isPrimeTime ? 'primeTime' : 'backToBack';
+                    if (!patterns.contexts[context]) patterns.contexts[context] = 0;
+                    patterns.contexts[context]++;
+                }
+            }
+            
             // Calculates how well a bet matches learned winning patterns
             calculateMoneyMakerScore(pick) {
                 if (!this.model.moneyMakerPatterns || this.model.totalBets < 20) return 0;
@@ -2317,7 +2416,8 @@
                 
                 // 1. Team success pattern (0-20 points)
                 const teamPattern = patterns.teams[pick.team];
-                if (teamPattern && teamPattern.total >= 3) {
+                // IMPROVED: Need at least 5 bets for statistical significance (was 3)
+                if (teamPattern && teamPattern.total >= 5) {
                     const teamBonus = Math.min(20, teamPattern.winRate * 20);
                     score += teamBonus;
                     if (teamBonus >= 15) factors.push(`${pick.team} wins ${(teamPattern.winRate * 100).toFixed(0)}%`);
@@ -2326,7 +2426,8 @@
                 // 2. Bet type success (0-15 points)
                 const betType = pick.type || 'Moneyline';
                 const betTypePattern = patterns.betTypes[betType];
-                if (betTypePattern && betTypePattern.total >= 3) {
+                // IMPROVED: Need at least 5 bets for statistical significance (was 3)
+                if (betTypePattern && betTypePattern.total >= 5) {
                     const betTypeBonus = Math.min(15, betTypePattern.winRate * 15);
                     score += betTypeBonus;
                     if (betTypeBonus >= 10) factors.push(`${betType} wins ${(betTypePattern.winRate * 100).toFixed(0)}%`);
@@ -2346,7 +2447,8 @@
                 // 4. Odds range success (0-10 points)
                 const oddsRange = Math.floor(Math.abs(pick.odds) / 50) * 50;
                 const oddsPattern = patterns.oddsRanges[oddsRange];
-                if (oddsPattern && oddsPattern.total >= 3) {
+                // IMPROVED: Need at least 5 bets for statistical significance (was 3)
+                if (oddsPattern && oddsPattern.total >= 5) {
                     const oddsWinRate = oddsPattern.wins / oddsPattern.total;
                     if (oddsWinRate > 0.6) {
                         score += 10;
@@ -2357,7 +2459,8 @@
                 // 5. Discrepancy pattern (0-15 points)
                 const discRange = Math.floor(pick.discrepancy / 2) * 2;
                 const discPattern = patterns.discrepancyRanges[discRange];
-                if (discPattern && discPattern.total >= 3) {
+                // IMPROVED: Need at least 5 bets for statistical significance (was 3)
+                if (discPattern && discPattern.total >= 5) {
                     const discWinRate = discPattern.wins / discPattern.total;
                     if (discWinRate > 0.6) {
                         score += 15;
@@ -2383,12 +2486,50 @@
                     factors.push('fading public');
                 }
                 
+                // CRITICAL: Penalize if matches LOSING patterns
+                if (this.model.losingPatterns) {
+                    const losingPatterns = this.model.losingPatterns;
+                    let penalty = 0;
+                    
+                    // Check if team has high loss rate
+                    const teamLoss = losingPatterns.teams[pick.team];
+                    if (teamLoss && teamLoss.total >= 5) {
+                        const lossRate = teamLoss.losses / teamLoss.total;
+                        if (lossRate > 0.6) {
+                            penalty += 20;
+                            factors.push(`⚠️ Team loses ${(lossRate * 100).toFixed(0)}% - HIGH RISK`);
+                        }
+                    }
+                    
+                    // Check if bet type has high loss rate
+                    const betTypeLoss = losingPatterns.betTypes[betType];
+                    if (betTypeLoss && betTypeLoss.total >= 5) {
+                        const lossRate = betTypeLoss.losses / betTypeLoss.total;
+                        if (lossRate > 0.6) {
+                            penalty += 15;
+                            factors.push(`⚠️ ${betType} loses ${(lossRate * 100).toFixed(0)}% - AVOID`);
+                        }
+                    }
+                    
+                    // Check if odds range is dangerous
+                    const oddsLoss = losingPatterns.oddsRanges[oddsRange];
+                    if (oddsLoss && oddsLoss.total >= 5) {
+                        const lossRate = oddsLoss.losses / oddsLoss.total;
+                        if (lossRate > 0.6) {
+                            penalty += 10;
+                            factors.push(`⚠️ Odds range ${oddsRange} risky`);
+                        }
+                    }
+                    
+                    score -= penalty;
+                }
+                
                 // Store reasoning for display
                 if (factors.length > 0) {
                     pick.moneyMakerFactors = factors;
                 }
                 
-                return Math.min(100, score);
+                return Math.max(0, Math.min(100, score));
             }
             
             // Advanced Learning Method 5: Correlation Analysis
