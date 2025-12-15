@@ -393,19 +393,43 @@
             return apiUsage[monthKey] || { count: 0, limit: 500 };
         }
         
+        function canMakeApiCall(callsNeeded = 1) {
+            const usage = getApiUsage();
+            const remaining = usage.limit - usage.count;
+            return {
+                allowed: remaining >= callsNeeded,
+                remaining: remaining,
+                needed: callsNeeded,
+                current: usage.count,
+                limit: usage.limit
+            };
+        }
+        
         function updateApiUsageDisplay() {
             const usage = getApiUsage();
             const percent = (usage.count / usage.limit * 100).toFixed(0);
-            const color = percent > 90 ? 'text-red-600' : percent > 70 ? 'text-orange-600' : 'text-green-600';
+            const remaining = usage.limit - usage.count;
+            const color = percent >= 100 ? 'text-red-600 font-black' : percent > 90 ? 'text-red-600' : percent > 70 ? 'text-orange-600' : 'text-green-600';
             const apiDisplay = document.getElementById('apiUsage');
             if (apiDisplay) {
                 apiDisplay.innerHTML = `<span class="${color} font-bold">${usage.count}/${usage.limit}</span> calls`;
+                if (percent >= 100) {
+                    apiDisplay.innerHTML += ` <span class="text-red-600 text-xs">⚠️ LIMIT REACHED</span>`;
+                } else if (remaining <= 50) {
+                    apiDisplay.innerHTML += ` <span class="text-orange-600 text-xs">(${remaining} left)</span>`;
+                }
             }
             
             // Notify when approaching limit
-            if (percent >= 90 && !localStorage.getItem('api90notified')) {
-                showNotification('⚠️ API usage at 90% - Consider caching', 'warning');
+            if (percent >= 100 && !localStorage.getItem('api100notified')) {
+                showNotification('🛑 API LIMIT REACHED - Using cache only', 'error');
+                localStorage.setItem('api100notified', 'true');
+            } else if (percent >= 90 && !localStorage.getItem('api90notified')) {
+                showNotification('⚠️ API usage at 90% - Only essential calls', 'warning');
                 localStorage.setItem('api90notified', 'true');
+            } else if (percent >= 70 && !localStorage.getItem('api70notified')) {
+                showNotification('📊 API usage at 70% - Using cache when possible', 'info');
+                localStorage.setItem('api70notified', 'true');
             }
         }
         
@@ -2588,6 +2612,19 @@
             btn.disabled = true;
             btn.innerHTML = '<div class="text-lg">⏳ Analyzing...</div><div class="text-xs opacity-90">Checking all sports...</div>';
             
+            // CHECK API LIMIT BEFORE STARTING
+            const apiCheck = canMakeApiCall(5); // Checking 5 sports max
+            if (!apiCheck.allowed) {
+                btn.disabled = false;
+                btn.innerHTML = '<div class="text-lg">🔍 Analyze Games</div><div class="text-xs opacity-90">Find value bets with AI</div>';
+                alert(`⚠️ API Limit Reached!\n\nYou've used ${apiCheck.current}/${apiCheck.limit} API calls this month.\nRemaining: ${apiCheck.remaining} calls\n\nThe system will use cached data when possible.\nLimit resets next month.`);
+                return;
+            }
+            
+            if (apiCheck.remaining <= 50) {
+                showNotification(`⚠️ Low API calls: ${apiCheck.remaining} remaining`, 'warning');
+            }
+            
             try {
                 // All sports to analyze
                 const sports = [
@@ -3005,6 +3042,16 @@
                 console.log(message);
             }
             
+            // CHECK API LIMIT BEFORE SETTLING
+            const apiCheck = canMakeApiCall(5); // Max 5 sports
+            if (!apiCheck.allowed) {
+                if (!silentMode) {
+                    alert(`⚠️ API Limit Reached!\n\nCannot settle bets - you've used ${apiCheck.current}/${apiCheck.limit} API calls this month.\nLimit resets next month.`);
+                }
+                console.log('⚠️ Settlement skipped - API limit reached');
+                return;
+            }
+            
             const btn = document.getElementById('settleBtn');
             if (!silentMode) {
                 btn.disabled = true;
@@ -3013,6 +3060,7 @@
             
             try {
                 addLog('🔍 Starting settlement process...', 'header');
+                addLog(`📊 API Usage: ${apiCheck.current}/${apiCheck.limit} (${apiCheck.remaining} remaining)`, 'info');
                 addLog('', 'info');
                 addLog(`📡 Fetching scores from API for all sports...`, 'info');
                 
