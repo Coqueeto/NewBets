@@ -13,19 +13,42 @@
         body {
             font-family: 'Inter', sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background-size: 200% 200%;
+            animation: gradientShift 15s ease infinite;
             min-height: 100vh;
         }
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
         .glass-card {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            background: rgba(255, 255, 255, 0.97);
+            backdrop-filter: blur(20px) saturate(180%);
+            border-radius: 24px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37), 0 2px 8px rgba(0, 0, 0, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .glass-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        .glass-card:hover::before {
+            left: 100%;
         }
         .glass-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.45);
+            transform: translateY(-4px) scale(1.01);
+            box-shadow: 0 16px 48px 0 rgba(31, 38, 135, 0.5), 0 4px 16px rgba(0, 0, 0, 0.1);
+            border-color: rgba(255, 255, 255, 0.5);
         }
         .ai-badge {
             animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
@@ -51,7 +74,19 @@
             animation: shimmer 2s infinite;
         }
         .progress-bar {
-            transition: width 0.5s ease;
+            transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: shimmer 2s infinite;
         }
         .stat-increase {
             animation: statPop 0.5s ease;
@@ -59,6 +94,20 @@
         @keyframes statPop {
             0%, 100% { transform: scale(1); }
             50% { transform: scale(1.1); }
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+        }
+        .float-animation {
+            animation: float 3s ease-in-out infinite;
+        }
+        @keyframes rotate360 {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .rotate-slow {
+            animation: rotate360 20s linear infinite;
         }
         @keyframes slideInRight {
             from { 
@@ -85,10 +134,53 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+            font-weight: 700;
+        }
+        .glow {
+            box-shadow: 0 0 20px rgba(102, 126, 234, 0.5), 0 0 40px rgba(118, 75, 162, 0.3);
+        }
+        .glow-green {
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.6), 0 0 30px rgba(16, 185, 129, 0.3);
+        }
+        .glow-pulse {
+            animation: glowPulse 2s ease-in-out infinite;
+        }
+        @keyframes glowPulse {
+            0%, 100% { box-shadow: 0 0 15px rgba(102, 126, 234, 0.4); }
+            50% { box-shadow: 0 0 25px rgba(102, 126, 234, 0.8), 0 0 40px rgba(118, 75, 162, 0.5); }
+        }
+        /* Colored accent borders for card categories */
+        .card-analysis { border-left: 4px solid #8b5cf6; }
+        .card-stats { border-left: 4px solid #3b82f6; }
+        .card-bankroll { border-left: 4px solid #10b981; }
+        .card-performance { border-left: 4px solid #f59e0b; }
+        .card-predictions { border-left: 4px solid #ec4899; }
+        /* Micro-interactions */
+        button {
+            position: relative;
+            overflow: hidden;
+        }
+        button::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+        button:active::after {
+            width: 300px;
+            height: 300px;
         }
         /* Dark Mode */
         body.dark-mode {
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            background-size: 200% 200%;
+            animation: gradientShift 15s ease infinite;
         }
         body.dark-mode .glass-card {
             background: rgba(30, 30, 46, 0.95);
@@ -254,10 +346,12 @@
     <div class="max-w-7xl mx-auto space-y-4 md:space-y-6">
         
         <!-- Header -->
-        <div class="glass-card p-4 md:p-6">
+        <div class="glass-card p-4 md:p-6 glow-pulse" style="border-top: 3px solid; border-image: linear-gradient(90deg, #667eea, #764ba2, #667eea) 1;">
             <div class="flex flex-col md:flex-row items-center justify-between gap-4">
                 <div class="text-center md:text-left flex-1">
-                    <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">🤖 Self-Learning AI Betting System</h1>
+                    <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">
+                        <span class="inline-block float-animation">🤖</span> Self-Learning AI Betting System
+                    </h1>
                     <p class="text-xs sm:text-sm md:text-base text-gray-600 mt-1 leading-relaxed">Advanced machine learning for profitable betting <span class="text-xs text-purple-600 font-mono font-bold">v4.0 COMPLETE</span></p>
                     <p class="text-xs text-gray-500 mt-2 hidden sm:block">🧠 Bayesian · 📊 Kelly · 📈 Ensemble · ⚡ Time-Decay · 🎯 Regression · 💎 Monte Carlo</p>
                 </div>
@@ -309,7 +403,7 @@
 
         <!-- AI Stats Dashboard -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-            <div class="glass-card p-4 slide-in hover:shadow-xl">
+            <div class="glass-card p-4 slide-in hover:shadow-xl card-stats" style="border-top: 3px solid #3b82f6;">
                 <div class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 flex justify-between items-center mb-2">
                     <span class="font-medium">Total Bets Analyzed</span>
                     <span class="text-xs" id="trendIndicator"></span>
@@ -412,15 +506,18 @@
         <div class="glass-card p-4 md:p-6">
             <h2 class="text-base sm:text-lg md:text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">🧠 AI Control Panel</h2>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
-                <button id="analyzeBtn" onclick="analyzeGames()" class="bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold py-4 md:py-5 px-4 md:px-6 rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 min-h-[72px] md:min-h-[80px]">
-                    <div class="text-base md:text-lg mb-1">🔍 Analyze Games</div>
-                    <div class="text-xs opacity-90">Find value bets with AI</div>
+                <button id="analyzeBtn" onclick="analyzeGames()" class="bg-gradient-to-br from-purple-600 via-purple-700 to-blue-600 text-white font-bold py-4 md:py-5 px-4 md:px-6 rounded-xl hover:from-purple-700 hover:via-purple-800 hover:to-blue-700 transition-all shadow-lg hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 min-h-[72px] md:min-h-[80px] relative overflow-hidden group">
+                    <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000"></div>
+                    <div class="relative text-base md:text-lg mb-1">🔍 Analyze Games</div>
+                    <div class="relative text-xs opacity-90">Find value bets with AI</div>
                 </button>
-                <button id="settleBtn" onclick="settleBets()" class="bg-gradient-to-r from-green-600 to-teal-600 text-white font-bold py-4 md:py-5 px-4 md:px-6 rounded-xl hover:from-green-700 hover:to-teal-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 min-h-[72px] md:min-h-[80px]">
-                    <div class="text-base md:text-lg mb-1">✅ Settle Results</div>
-                    <div class="text-xs opacity-90">Get real game outcomes</div>
+                <button id="settleBtn" onclick="settleBets()" class="bg-gradient-to-br from-green-600 via-emerald-600 to-teal-600 text-white font-bold py-4 md:py-5 px-4 md:px-6 rounded-xl hover:from-green-700 hover:via-emerald-700 hover:to-teal-700 transition-all shadow-lg hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 min-h-[72px] md:min-h-[80px] relative overflow-hidden group">
+                    <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000"></div>
+                    <div class="relative text-base md:text-lg mb-1">✅ Settle Results</div>
+                    <div class="relative text-xs opacity-90">Get real game outcomes</div>
                 </button>
-                <button id="learnBtn" onclick="runLearningCycle()" class="bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold py-4 md:py-5 px-4 md:px-6 rounded-xl hover:from-orange-700 hover:to-red-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 min-h-[72px] md:min-h-[80px]">
+                <button id="learnBtn" onclick="runLearningCycle()" class="bg-gradient-to-br from-orange-600 via-red-600 to-pink-600 text-white font-bold py-4 md:py-5 px-4 md:px-6 rounded-xl hover:from-orange-700 hover:via-red-700 hover:to-pink-700 transition-all shadow-lg hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 min-h-[72px] md:min-h-[80px] relative overflow-hidden group">
+                    <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000"></div>
                     <div class="text-base md:text-lg mb-1">🎓 Extra Learning</div>
                     <div class="text-xs opacity-90">Auto-learns after settlement</div>
                 </button>
