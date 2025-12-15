@@ -909,17 +909,19 @@
             }).join('');
         }
         
-        async function settleBets() {
+        async function settleBets(silentMode = false) {
             if (predictions.length === 0) {
-                alert('No predictions to settle. Analyze games first!');
+                if (!silentMode) alert('No predictions to settle. Analyze games first!');
                 return;
             }
             
             // Show settlement log
             const logDiv = document.getElementById('settlementLog');
             const logContent = document.getElementById('logContent');
-            logDiv.classList.remove('hidden');
-            logContent.innerHTML = '';
+            if (!silentMode) {
+                logDiv.classList.remove('hidden');
+                logContent.innerHTML = '';
+            }
             
             function addLog(message, type = 'info') {
                 const colors = {
@@ -929,17 +931,21 @@
                     'warning': 'text-yellow-400',
                     'header': 'text-blue-400 font-bold'
                 };
-                const log = document.createElement('div');
-                log.className = colors[type];
-                log.textContent = message;
-                logContent.appendChild(log);
-                logContent.scrollTop = logContent.scrollHeight;
+                if (!silentMode) {
+                    const log = document.createElement('div');
+                    log.className = colors[type];
+                    log.textContent = message;
+                    logContent.appendChild(log);
+                    logContent.scrollTop = logContent.scrollHeight;
+                }
                 console.log(message);
             }
             
             const btn = document.getElementById('settleBtn');
-            btn.disabled = true;
-            btn.innerHTML = '<div class="text-lg">⏳ Settling...</div><div class="text-xs opacity-90">Getting results</div>';
+            if (!silentMode) {
+                btn.disabled = true;
+                btn.innerHTML = '<div class="text-lg">⏳ Settling...</div><div class="text-xs opacity-90">Getting results</div>';
+            }
             
             try {
                 addLog('🔍 Starting settlement process...', 'header');
@@ -1111,21 +1117,29 @@
                     
                     savePredictions(); // Save updated predictions
                     displayPredictions();
-                    alert(`✅ Settled ${settled} bets!\n\nWins: ${wins} ✅\nLosses: ${losses} ❌\nWin Rate: ${winRate}%\n\n🗑️ Removed ${removedCount} finished bets\n📊 ${predictions.length} bets still active\n\nAI is learning from results...`);
+                    updateStats(); // Update stats after settlement
+                    
+                    if (!silentMode) {
+                        alert(`✅ Settled ${settled} bets!\n\nWins: ${wins} ✅\nLosses: ${losses} ❌\nWin Rate: ${winRate}%\n\n🗑️ Removed ${removedCount} finished bets\n📊 ${predictions.length} bets still active\n\nAI is learning from results...`);
+                    } else {
+                        console.log(`🤖 Auto-settled ${settled} bets (${wins}W/${losses}L - ${winRate}% WR) - ${predictions.length} active remaining`);
+                    }
                 } else {
                     addLog('   ⏰ No games finished yet', 'warning');
-                    alert('⏰ Games not finished yet. Check back later!');
+                    if (!silentMode) alert('⏰ Games not finished yet. Check back later!');
                 }
                 
             } catch (error) {
                 addLog('', 'info');
                 addLog(`❌ ERROR: ${error.message}`, 'error');
                 console.error('Settlement error:', error);
-                alert('Error fetching scores: ' + error.message);
+                if (!silentMode) alert('Error fetching scores: ' + error.message);
             }
             
-            btn.disabled = false;
-            btn.innerHTML = '<div class="text-lg">✅ Settle Results</div><div class="text-xs opacity-90">Get real game outcomes</div>';
+            if (!silentMode) {
+                btn.disabled = false;
+                btn.innerHTML = '<div class="text-lg">✅ Settle Results</div><div class="text-xs opacity-90">Get real game outcomes</div>';
+            }
         }
         
         function clearAllBets() {
@@ -1179,14 +1193,106 @@
             document.getElementById('cycles').textContent = ai.model.learningCycles;
         }
         
+        // Auto-settlement system - Smart timing to avoid API limit
+        function getGameDuration(sport) {
+            // Approximate game durations in minutes
+            const durations = {
+                'NFL': 210,      // ~3.5 hours
+                'NCAAF': 210,    // ~3.5 hours
+                'NBA': 150,      // ~2.5 hours
+                'NHL': 150,      // ~2.5 hours
+                'MLB': 180       // ~3 hours
+            };
+            return durations[sport] || 180;
+        }
+        
+        function getNextSettlementTime() {
+            if (predictions.length === 0) return null;
+            
+            const now = new Date();
+            let earliestCheck = null;
+            
+            // Find the earliest game that should be finished
+            predictions.forEach(pred => {
+                const gameTime = new Date(pred.gameTime);
+                const gameDuration = getGameDuration(pred.sport);
+                const estimatedEndTime = new Date(gameTime.getTime() + gameDuration * 60000);
+                
+                // Add 15 minute buffer after estimated end
+                const checkTime = new Date(estimatedEndTime.getTime() + 15 * 60000);
+                
+                // Only consider games that should be done or finishing soon
+                if (checkTime <= new Date(now.getTime() + 4 * 60 * 60000)) { // Within next 4 hours
+                    if (!earliestCheck || checkTime < earliestCheck) {
+                        earliestCheck = checkTime;
+                    }
+                }
+            });
+            
+            return earliestCheck;
+        }
+        
+        async function autoSettleCheck() {
+            if (predictions.length === 0) {
+                console.log('⏰ Auto-settle: No predictions to check');
+                return;
+            }
+            
+            const now = new Date();
+            const nextCheckTime = getNextSettlementTime();
+            
+            if (!nextCheckTime) {
+                console.log('⏰ Auto-settle: No games finishing soon');
+                scheduleNextAutoSettle();
+                return;
+            }
+            
+            if (now < nextCheckTime) {
+                const minutesUntil = Math.ceil((nextCheckTime - now) / 60000);
+                console.log(`⏰ Auto-settle: Next check in ${minutesUntil} minutes (when games should be finished)`);
+                scheduleNextAutoSettle();
+                return;
+            }
+            
+            console.log('🤖 Auto-settling completed games...');
+            await settleBets(true); // Pass true for silent mode
+            
+            // Schedule next check after settling
+            scheduleNextAutoSettle();
+        }
+        
+        let autoSettleTimeout = null;
+        function scheduleNextAutoSettle() {
+            // Clear existing timeout
+            if (autoSettleTimeout) clearTimeout(autoSettleTimeout);
+            
+            const nextCheckTime = getNextSettlementTime();
+            if (!nextCheckTime) {
+                // No games finishing soon, check again in 2 hours
+                autoSettleTimeout = setTimeout(autoSettleCheck, 2 * 60 * 60000);
+                console.log('⏰ No games finishing soon, will check again in 2 hours');
+                return;
+            }
+            
+            const now = new Date();
+            const msUntilCheck = Math.max(60000, nextCheckTime - now); // At least 1 minute
+            autoSettleTimeout = setTimeout(autoSettleCheck, msUntilCheck);
+            
+            const minutesUntil = Math.ceil(msUntilCheck / 60000);
+            console.log(`⏰ Auto-settle scheduled for ${minutesUntil} minutes from now`);
+        }
+        
         // Initialize
         loadPredictions(); // Load saved predictions
         updateStats();
         displayPredictions(); // Display loaded predictions
         
+        // Start smart auto-settlement system
+        scheduleNextAutoSettle();
+        
         // Display version info
         console.log('🚀 AI Betting System v2.0 - Build: 2024-12-10 18:30 UTC');
-        console.log('✅ Features: Multi-bet types (Moneyline/Spread/Total), AI Learning, Performance Tracking');
+        console.log('✅ Features: Multi-bet types (Moneyline/Spread/Total), AI Learning, Performance Tracking, Auto-Settlement');
         console.log(`📊 Loaded ${predictions.length} saved predictions`);
     </script>
     
