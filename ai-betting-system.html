@@ -60,6 +60,26 @@
             0%, 100% { transform: scale(1); }
             50% { transform: scale(1.1); }
         }
+        @keyframes slideInRight {
+            from { 
+                opacity: 0; 
+                transform: translateX(400px);
+            }
+            to { 
+                opacity: 1; 
+                transform: translateX(0);
+            }
+        }
+        @keyframes slideOutRight {
+            from { 
+                opacity: 1; 
+                transform: translateX(0);
+            }
+            to { 
+                opacity: 0; 
+                transform: translateX(400px);
+            }
+        }
         .gradient-text {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             -webkit-background-clip: text;
@@ -493,6 +513,120 @@
                 reader.readAsText(file);
             };
             input.click();
+        }
+        
+        // Auto-Settlement Notification Window
+        function showSettlementNotification(pred, won, score, homeScore, awayScore, resultDetails) {
+            const gameDate = new Date(pred.gameTime);
+            const dateStr = gameDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const timeStr = gameDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+            
+            // Calculate payout
+            const stake = 100;
+            let payout = 0;
+            if (won) {
+                if (pred.odds > 0) {
+                    payout = stake + (stake * pred.odds / 100);
+                } else {
+                    payout = stake + (stake * 100 / Math.abs(pred.odds));
+                }
+            }
+            
+            // Create notification container if it doesn't exist
+            let container = document.getElementById('settlementNotifications');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'settlementNotifications';
+                container.style.cssText = `
+                    position: fixed;
+                    top: 80px;
+                    right: 20px;
+                    z-index: 10000;
+                    max-width: 400px;
+                    max-height: 80vh;
+                    overflow-y: auto;
+                `;
+                document.body.appendChild(container);
+            }
+            
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                background: ${won ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'};
+                color: white;
+                padding: 16px;
+                border-radius: 12px;
+                margin-bottom: 12px;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+                animation: slideInRight 0.5s ease-out;
+                border: 2px solid ${won ? '#34d399' : '#f87171'};
+            `;
+            
+            notification.innerHTML = `
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                    <div style="font-size: 24px;">${won ? '✅' : '❌'}</div>
+                    <div style="font-size: 18px; font-weight: bold;">${won ? 'WON' : 'LOST'}</div>
+                    <button onclick="this.parentElement.parentElement.remove()" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; font-size: 16px;">×</button>
+                </div>
+                <div style="font-size: 14px; font-weight: 600; margin-bottom: 6px;">
+                    ${pred.game}
+                </div>
+                <div style="font-size: 12px; opacity: 0.95; margin-bottom: 8px;">
+                    📅 ${dateStr} at ${timeStr}
+                </div>
+                <div style="background: rgba(255,255,255,0.15); padding: 8px; border-radius: 6px; margin-bottom: 8px;">
+                    <div style="font-size: 11px; opacity: 0.9; margin-bottom: 4px;">AI PICK</div>
+                    <div style="font-size: 13px; font-weight: 600;">
+                        ${pred.betDetails} ${pred.odds > 0 ? '+' : ''}${pred.odds}
+                    </div>
+                    <div style="font-size: 11px; opacity: 0.9; margin-top: 2px;">
+                        ${pred.confidence.toFixed(0)}% confidence
+                    </div>
+                </div>
+                <div style="background: rgba(255,255,255,0.15); padding: 8px; border-radius: 6px; margin-bottom: 8px;">
+                    <div style="font-size: 11px; opacity: 0.9; margin-bottom: 4px;">FINAL SCORE</div>
+                    <div style="font-size: 13px; font-weight: 600;">
+                        ${score.away_team} ${awayScore} - ${homeScore} ${score.home_team}
+                    </div>
+                    <div style="font-size: 11px; opacity: 0.9; margin-top: 4px;">
+                        ${resultDetails}
+                    </div>
+                </div>
+                ${won ? `
+                    <div style="background: rgba(255,255,255,0.2); padding: 8px; border-radius: 6px; text-align: center;">
+                        <div style="font-size: 11px; opacity: 0.9;">PAYOUT ($100 stake)</div>
+                        <div style="font-size: 16px; font-weight: bold; margin-top: 2px;">
+                            $${payout.toFixed(2)}
+                        </div>
+                        <div style="font-size: 11px; opacity: 0.9; margin-top: 2px;">
+                            Profit: +$${(payout - stake).toFixed(2)}
+                        </div>
+                    </div>
+                ` : `
+                    <div style="background: rgba(255,255,255,0.2); padding: 6px; border-radius: 6px; text-align: center;">
+                        <div style="font-size: 12px;">
+                            Loss: -$${stake.toFixed(2)}
+                        </div>
+                    </div>
+                `}
+            `;
+            
+            // Add to container
+            container.insertBefore(notification, container.firstChild);
+            
+            // Auto-remove after 15 seconds
+            setTimeout(() => {
+                notification.style.animation = 'slideOutRight 0.5s ease-out';
+                setTimeout(() => notification.remove(), 500);
+            }, 15000);
+            
+            // Show browser notification if permitted
+            if (Notification.permission === 'granted') {
+                new Notification(`Bet ${won ? 'WON' : 'LOST'} ✅`, {
+                    body: `${pred.game}\n${pred.betDetails}\nFinal: ${score.away_team} ${awayScore} - ${homeScore} ${score.home_team}`,
+                    icon: won ? '✅' : '❌'
+                });
+            }
         }
         
         // Confidence Filter
@@ -3018,6 +3152,11 @@
                         
                         addLog(`   💾 Result recorded to AI model`, 'info');
                         
+                        // Show auto-settlement notification
+                        if (silentMode) {
+                            showSettlementNotification(pred, won, score, homeScore, awayScore, resultDetails);
+                        }
+                        
                     } else {
                         addLog(`   ⚠️ Score data incomplete or missing`, 'error');
                         addLog(`   Home Score: ${homeScore}, Away Score: ${awayScore}`, 'error');
@@ -3378,7 +3517,19 @@
             }
             
             console.log('🤖 Auto-settling completed games...');
+            
+            // Track before count
+            const beforeSettle = predictions.filter(p => !p.settled).length;
+            
             await settleBets(true); // Pass true for silent mode
+            
+            // Check what was settled
+            const afterSettle = predictions.filter(p => !p.settled).length;
+            const settledCount = beforeSettle - afterSettle;
+            
+            if (settledCount > 0) {
+                console.log(`✅ Auto-settled ${settledCount} bets`);
+            }
             
             // Schedule next check after settling
             scheduleNextAutoSettle();
