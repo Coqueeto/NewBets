@@ -160,6 +160,37 @@
             </div>
         </div>
 
+        <!-- API Usage Tips Banner -->
+        <div class="glass-card p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900 dark:to-purple-900 border-l-4 border-blue-500" id="apiTipsBanner">
+            <div class="flex items-start justify-between">
+                <div class="flex-1">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="text-lg">💡</span>
+                        <span class="font-bold text-gray-900 dark:text-gray-100 text-sm">API Best Practices (500 calls/month free tier)</span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-gray-700 dark:text-gray-300">
+                        <div class="flex items-center gap-1">
+                            <span class="text-green-600 dark:text-green-400">✓</span>
+                            <span><strong>Analyze once/day</strong> (~150 calls/month)</span>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <span class="text-green-600 dark:text-green-400">✓</span>
+                            <span><strong>Auto-settle handles results</strong> (avoid manual)</span>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <span class="text-green-600 dark:text-green-400">✓</span>
+                            <span><strong>Use within 2 hours</strong> (5-min cache)</span>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <span class="text-green-600 dark:text-green-400">✓</span>
+                            <span><strong>Limit 30-40 bets/month</strong> to stay safe</span>
+                        </div>
+                    </div>
+                </div>
+                <button onclick="document.getElementById('apiTipsBanner').style.display='none'" class="text-gray-400 hover:text-gray-600 ml-2 text-xl leading-none">&times;</button>
+            </div>
+        </div>
+
         <!-- AI Stats Dashboard -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div class="glass-card p-4 slide-in">
@@ -2609,6 +2640,20 @@
         
         async function analyzeGames() {
             const btn = document.getElementById('analyzeBtn');
+            
+            // Check if analyzed recently (recommend once per day)
+            const lastAnalyzed = localStorage.getItem('lastAnalyzed');
+            const now = Date.now();
+            if (lastAnalyzed) {
+                const hoursSince = (now - parseInt(lastAnalyzed)) / (1000 * 60 * 60);
+                if (hoursSince < 12) {
+                    const hoursRemaining = (12 - hoursSince).toFixed(1);
+                    if (!confirm(`⏰ You analyzed ${hoursSince.toFixed(1)} hours ago.\n\n💡 Best Practice: Analyze once per day to save API calls.\n\nContinue anyway? (Uses 5 API calls)\n\nRecommended wait: ${hoursRemaining} more hours`)) {
+                        return;
+                    }
+                }
+            }
+            
             btn.disabled = true;
             btn.innerHTML = '<div class="text-lg">⏳ Analyzing...</div><div class="text-xs opacity-90">Checking all sports...</div>';
             
@@ -2624,6 +2669,9 @@
             if (apiCheck.remaining <= 50) {
                 showNotification(`⚠️ Low API calls: ${apiCheck.remaining} remaining`, 'warning');
             }
+            
+            // Track this analysis
+            localStorage.setItem('lastAnalyzed', now.toString());
             
             try {
                 // All sports to analyze
@@ -3014,6 +3062,12 @@
             if (predictions.length === 0) {
                 if (!silentMode) alert('No predictions to settle. Analyze games first!');
                 return;
+            }
+            
+            // Warn about manual settlement (suggest auto-settle)
+            if (!silentMode) {
+                const confirm = window.confirm(`💡 Manual Settlement uses 5 API calls.\n\n✅ Recommended: Let Auto-Settle handle this!\nAuto-settle checks when games finish automatically.\n\n📊 Current API Usage: ${getApiUsage().count}/500 calls\n\nContinue with manual settlement?`);
+                if (!confirm) return;
             }
             
             // Show settlement log
@@ -3631,6 +3685,74 @@
             console.log('📡 Live odds monitoring started (checks active bets within 2 hours of game start)');
         }
         
+        // DAILY SCHEDULED TASKS - Optimal for AI Learning & Win Rate
+        // 6am CT: Analyze fresh daily games (morning prep)
+        // 11pm CT: Settle all completed games (end of day learning)
+        let dailyScheduleInterval = null;
+        function startDailySchedule() {
+            // Check every minute for scheduled tasks
+            dailyScheduleInterval = setInterval(async () => {
+                const now = new Date();
+                
+                // Convert to Central Time
+                const ctTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+                const hour = ctTime.getHours();
+                const minute = ctTime.getMinutes();
+                
+                // Track if we've run today's tasks
+                const today = ctTime.toDateString();
+                const lastAnalysis = localStorage.getItem('lastScheduledAnalysis');
+                const lastSettlement = localStorage.getItem('lastScheduledSettlement');
+                
+                // 6:00 AM CT - Daily Analysis (Run once per day)
+                if (hour === 6 && minute === 0 && lastAnalysis !== today) {
+                    console.log('🌅 6:00 AM CT - Running scheduled daily analysis...');
+                    showNotification('🌅 Good morning! Running daily game analysis...', 'info');
+                    
+                    const apiCheck = canMakeApiCall(5);
+                    if (apiCheck.allowed) {
+                        await analyzeGames();
+                        localStorage.setItem('lastScheduledAnalysis', today);
+                        showNotification(`✅ Daily analysis complete! Found ${predictions.length} betting opportunities`, 'success');
+                    } else {
+                        console.log('⚠️ Skipping scheduled analysis - API limit reached');
+                        showNotification('⚠️ Scheduled analysis skipped - API limit reached', 'warning');
+                    }
+                }
+                
+                // 11:00 PM CT - Daily Settlement (Run once per day)
+                if (hour === 23 && minute === 0 && lastSettlement !== today) {
+                    console.log('🌙 11:00 PM CT - Running scheduled daily settlement...');
+                    showNotification('🌙 End of day settlement starting...', 'info');
+                    
+                    const apiCheck = canMakeApiCall(5);
+                    if (apiCheck.allowed && predictions.some(p => !p.settled)) {
+                        const beforeCount = predictions.filter(p => !p.settled).length;
+                        await settleBets(true);
+                        const afterCount = predictions.filter(p => !p.settled).length;
+                        const settled = beforeCount - afterCount;
+                        
+                        localStorage.setItem('lastScheduledSettlement', today);
+                        
+                        if (settled > 0) {
+                            const winRate = ai.model.totalBets > 0 ? ((ai.model.wins / ai.model.totalBets) * 100).toFixed(1) : 0;
+                            showNotification(`🌙 Daily settlement complete! Settled ${settled} bets. AI Win Rate: ${winRate}%`, 'success');
+                        }
+                    } else if (!apiCheck.allowed) {
+                        console.log('⚠️ Skipping scheduled settlement - API limit reached');
+                    }
+                }
+            }, 60 * 1000); // Check every minute
+            
+            // Show initial schedule info
+            const ctNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+            console.log('📅 Daily Schedule Active (Central Time):');
+            console.log('  🌅 6:00 AM - Analyze today\'s games');
+            console.log('  🌙 11:00 PM - Settle completed games');
+            console.log(`  ⏰ Current CT: ${ctNow.toLocaleTimeString()}`);
+            showNotification('📅 Daily schedule active: 6am analysis, 11pm settlement (CT)', 'info');
+        }
+        
         // Initialize
         loadPredictions(); // Load saved predictions
         updateStats();
@@ -3660,6 +3782,9 @@
         
         // Start live odds monitoring (API-efficient)
         startLiveOddsMonitoring();
+        
+        // Start daily scheduled tasks (6am analysis, 11pm settlement)
+        startDailySchedule();
         
         // Display version info
         console.log('🚀 AI Betting System v4.0 COMPLETE - Build: 2025-12-16 00:00 UTC');
