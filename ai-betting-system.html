@@ -337,7 +337,7 @@
         <!-- Sport Selection -->
         <div class="glass-card p-4 md:p-6">
             <h2 class="text-base sm:text-lg md:text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">🏆 Select Sport</h2>
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8 gap-3 md:gap-4">
                 <button onclick="selectSport('americanfootball_nfl', 'NFL')" class="sport-btn p-5 border-2 border-gray-300 dark:border-gray-600 rounded-xl hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900 transition-all shadow-sm hover:shadow-md active:scale-95">
                     <div class="text-3xl md:text-2xl mb-2">🏈</div>
                     <div class="font-semibold text-sm md:text-base">NFL</div>
@@ -357,6 +357,18 @@
                 <button onclick="selectSport('americanfootball_ncaaf', 'NCAAF')" class="sport-btn p-5 border-2 border-gray-300 dark:border-gray-600 rounded-xl hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900 transition-all shadow-sm hover:shadow-md active:scale-95">
                     <div class="text-3xl md:text-2xl mb-2">🎓</div>
                     <div class="font-semibold text-sm md:text-base">NCAAF</div>
+                </button>
+                <button onclick="selectSport('soccer_epl', 'EPL')" class="sport-btn p-5 border-2 border-gray-300 dark:border-gray-600 rounded-xl hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900 transition-all shadow-sm hover:shadow-md active:scale-95">
+                    <div class="text-3xl md:text-2xl mb-2">⚽</div>
+                    <div class="font-semibold text-sm md:text-base">EPL</div>
+                </button>
+                <button onclick="selectSport('soccer_usa_mls', 'MLS')" class="sport-btn p-5 border-2 border-gray-300 dark:border-gray-600 rounded-xl hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900 transition-all shadow-sm hover:shadow-md active:scale-95">
+                    <div class="text-3xl md:text-2xl mb-2">⚽</div>
+                    <div class="font-semibold text-sm md:text-base">MLS</div>
+                </button>
+                <button onclick="selectSport('soccer_uefa_champs_league', 'UCL')" class="sport-btn p-5 border-2 border-gray-300 dark:border-gray-600 rounded-xl hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900 transition-all shadow-sm hover:shadow-md active:scale-95">
+                    <div class="text-3xl md:text-2xl mb-2">⚽</div>
+                    <div class="font-semibold text-sm md:text-base">UCL</div>
                 </button>
             </div>
             <div class="mt-4 p-3 bg-purple-50 dark:bg-purple-900 rounded-lg text-center">
@@ -1026,7 +1038,10 @@
                             NCAAF: { minConfidence: 68, minDiscrepancy: 3.2, keyStats: ['turnovers', 'rushingYards'], favorHome: true },
                             NBA: { minConfidence: 65, minDiscrepancy: 3.0, keyStats: ['pace', 'threePointPct'], favorHome: false },
                             NHL: { minConfidence: 72, minDiscrepancy: 3.8, keyStats: ['goalieSavePct', 'powerPlay'], favorHome: true },
-                            MLB: { minConfidence: 75, minDiscrepancy: 4.0, keyStats: ['pitcherERA', 'bullpenERA'], favorHome: true }
+                            MLB: { minConfidence: 75, minDiscrepancy: 4.0, keyStats: ['pitcherERA', 'bullpenERA'], favorHome: true },
+                            EPL: { minConfidence: 73, minDiscrepancy: 3.6, keyStats: ['possession', 'shotsOnTarget'], favorHome: true },
+                            MLS: { minConfidence: 69, minDiscrepancy: 3.3, keyStats: ['possession', 'corners'], favorHome: true },
+                            UCL: { minConfidence: 76, minDiscrepancy: 4.2, keyStats: ['form', 'awayGoals'], favorHome: false }
                         },
                         confidenceIntervals: {},
                         injuryImpact: {},
@@ -1071,8 +1086,17 @@
                         NCAAF: { minConfidence: 68, minDiscrepancy: 3.2, keyStats: ['turnovers', 'rushingYards'], favorHome: true },
                         NBA: { minConfidence: 65, minDiscrepancy: 3.0, keyStats: ['pace', 'threePointPct'], favorHome: false },
                         NHL: { minConfidence: 72, minDiscrepancy: 3.8, keyStats: ['goalieSavePct', 'powerPlay'], favorHome: true },
-                        MLB: { minConfidence: 75, minDiscrepancy: 4.0, keyStats: ['pitcherERA', 'bullpenERA'], favorHome: true }
+                        MLB: { minConfidence: 75, minDiscrepancy: 4.0, keyStats: ['pitcherERA', 'bullpenERA'], favorHome: true },
+                        EPL: { minConfidence: 73, minDiscrepancy: 3.6, keyStats: ['possession', 'shotsOnTarget'], favorHome: true },
+                        MLS: { minConfidence: 69, minDiscrepancy: 3.3, keyStats: ['possession', 'corners'], favorHome: true },
+                        UCL: { minConfidence: 76, minDiscrepancy: 4.2, keyStats: ['form', 'awayGoals'], favorHome: false }
                     };
+                }
+                // Add soccer models to existing sportSpecific if missing
+                if (this.model.sportSpecific && !this.model.sportSpecific.EPL) {
+                    this.model.sportSpecific.EPL = { minConfidence: 73, minDiscrepancy: 3.6, keyStats: ['possession', 'shotsOnTarget'], favorHome: true };
+                    this.model.sportSpecific.MLS = { minConfidence: 69, minDiscrepancy: 3.3, keyStats: ['possession', 'corners'], favorHome: true };
+                    this.model.sportSpecific.UCL = { minConfidence: 76, minDiscrepancy: 4.2, keyStats: ['form', 'awayGoals'], favorHome: false };
                 }
                 if (!this.model.confidenceIntervals) this.model.confidenceIntervals = {};
                 if (!this.model.injuryImpact) this.model.injuryImpact = {};
@@ -2798,7 +2822,10 @@
                     { key: 'basketball_nba', name: 'NBA', emoji: '🏀' },
                     { key: 'icehockey_nhl', name: 'NHL', emoji: '🏒' },
                     { key: 'baseball_mlb', name: 'MLB', emoji: '⚾' },
-                    { key: 'americanfootball_ncaaf', name: 'NCAAF', emoji: '🎓' }
+                    { key: 'americanfootball_ncaaf', name: 'NCAAF', emoji: '🎓' },
+                    { key: 'soccer_epl', name: 'EPL', emoji: '⚽' },
+                    { key: 'soccer_usa_mls', name: 'MLS', emoji: '⚽' },
+                    { key: 'soccer_uefa_champs_league', name: 'UCL', emoji: '⚽' }
                 ];
                 
                 const newPredictions = [];
@@ -3242,7 +3269,10 @@
                     'basketball_nba',
                     'icehockey_nhl',
                     'baseball_mlb',
-                    'americanfootball_ncaaf'
+                    'americanfootball_ncaaf',
+                    'soccer_epl',
+                    'soccer_usa_mls',
+                    'soccer_uefa_champs_league'
                 ];
                 
                 let allScores = [];
