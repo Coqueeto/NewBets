@@ -785,19 +785,25 @@
                 }
                 
                 console.log(`Generated ${newPredictions.length} new predictions`);
+                console.log(`Keeping ${predictions.length} existing predictions`);
                 
                 if (newPredictions.length === 0) {
-                    alert('⏰ No new high-value bets found across all sports. AI is being selective!');
+                    const msg = predictions.length > 0 
+                        ? `⏰ No new high-value bets found. Keeping your ${predictions.length} active predictions!`
+                        : '⏰ No high-value bets found across all sports. AI is being selective!';
+                    alert(msg);
                     btn.disabled = false;
                     btn.innerHTML = '<div class="text-lg">🔍 Analyze Games</div><div class="text-xs opacity-90">Find value bets with AI</div>';
                     return;
                 }
                 
+                const oldCount = predictions.length;
+                
                 // Sort new predictions by confidence
                 newPredictions.sort((a, b) => b.confidence - a.confidence);
                 
-                // Add new predictions to existing ones (keep old ones)
-                predictions.push(...newPredictions.slice(0, 10));
+                // Add ALL new predictions to existing ones (keep ALL old ones)
+                predictions.push(...newPredictions);
                 
                 // Sort all predictions by confidence
                 predictions.sort((a, b) => b.confidence - a.confidence);
@@ -805,10 +811,10 @@
                 // Save to localStorage
                 savePredictions();
                 
-                console.log(`Total predictions: ${predictions.length}`);
+                console.log(`Total predictions: ${predictions.length} (${oldCount} kept + ${newPredictions.length} new)`);
                 displayPredictions();
                 
-                alert(`✅ Found ${newPredictions.length} new value bets across all sports!`);
+                alert(`✅ Added ${newPredictions.length} new bets! Total active: ${predictions.length} (kept ${oldCount} existing)`);
                 
             } catch (error) {
                 console.error('Full error:', error);
