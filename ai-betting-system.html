@@ -221,9 +221,11 @@
                             Total: { wins: 0, losses: 0, total: 0, avgConfidence: 0 }
                         },
                         confidenceRanges: {},
+                        betHistory: [], // Track all completed bets
                         patterns: {
                             spreadSuccess: { over: 0, under: 0, total: 0 },
                             moneylineSuccess: { favorite: 0, underdog: 0, total: 0 },
+                            homeAwayPerformance: { home: { wins: 0, losses: 0 }, away: { wins: 0, losses: 0 } },
                             oddsRanges: {},
                             teamPerformance: {}
                         },
@@ -237,6 +239,17 @@
                                 Total: 1.0
                             }
                         }
+                    };
+                }
+                
+                // Ensure betHistory exists for older models
+                if (!this.model.betHistory) {
+                    this.model.betHistory = [];
+                }
+                if (!this.model.patterns.homeAwayPerformance) {
+                    this.model.patterns.homeAwayPerformance = { 
+                        home: { wins: 0, losses: 0 }, 
+                        away: { wins: 0, losses: 0 } 
                     };
                 }
             }
@@ -292,6 +305,7 @@
                         potentialBets.push({
                             team: homeTeam,
                             opponent: awayTeam,
+                            isHomeTeam: true,
                             odds: bestHomeOdds,
                             avgOdds: avgHomeOdds,
                             discrepancy: homeDiscrepancy.toFixed(2),
@@ -307,6 +321,7 @@
                         potentialBets.push({
                             team: awayTeam,
                             opponent: homeTeam,
+                            isHomeTeam: false,
                             odds: bestAwayOdds,
                             avgOdds: avgAwayOdds,
                             discrepancy: awayDiscrepancy.toFixed(2),
@@ -342,6 +357,7 @@
                             potentialBets.push({
                                 team: homeTeam,
                                 opponent: awayTeam,
+                                isHomeTeam: true,
                                 odds: bestHomeSpreadOdds,
                                 avgOdds: avgHomeSpreadOdds,
                                 discrepancy: spreadDiscrepancy.toFixed(2),
@@ -366,6 +382,7 @@
                             potentialBets.push({
                                 team: awayTeam,
                                 opponent: homeTeam,
+                                isHomeTeam: false,
                                 odds: bestAwaySpreadOdds,
                                 avgOdds: avgAwaySpreadOdds,
                                 discrepancy: spreadDiscrepancy.toFixed(2),
@@ -493,6 +510,17 @@
                     this.model.losses++;
                 }
                 
+                // Determine if bet was on home or away team
+                const betOnHome = prediction.isHomeTeam !== undefined ? prediction.isHomeTeam : false;
+                const betPosition = betOnHome ? 'home' : 'away';
+                
+                // Track home/away performance
+                if (won) {
+                    this.model.patterns.homeAwayPerformance[betPosition].wins++;
+                } else {
+                    this.model.patterns.homeAwayPerformance[betPosition].losses++;
+                }
+                
                 // Track performance by bet type
                 const betType = prediction.type || 'Moneyline';
                 if (!this.model.betTypePerformance[betType]) {
@@ -520,6 +548,26 @@
                 }
                 this.model.patterns.teamPerformance[team].total++;
                 if (won) this.model.patterns.teamPerformance[team].wins++;
+                
+                // Add to bet history (keep last 100)
+                this.model.betHistory.unshift({
+                    date: new Date().toISOString(),
+                    game: prediction.game,
+                    sport: prediction.sport || 'Unknown',
+                    betType: betType,
+                    betDetails: prediction.betDetails || prediction.team,
+                    team: prediction.team,
+                    position: betPosition,
+                    odds: prediction.odds,
+                    confidence: prediction.confidence,
+                    won: won,
+                    finalScore: prediction.finalScore
+                });
+                
+                // Keep only last 100 bets
+                if (this.model.betHistory.length > 100) {
+                    this.model.betHistory = this.model.betHistory.slice(0, 100);
+                }
                 
                 this.saveModel();
             }
@@ -603,6 +651,24 @@
                         insights.push(`  ${emoji} **${betType}**: ${typeWinRate}% (${perf.wins}/${perf.total}) - Preference: ${preference}%`);
                     }
                 });
+                
+                // Home vs Away performance
+                const homePerf = this.model.patterns.homeAwayPerformance.home;
+                const awayPerf = this.model.patterns.homeAwayPerformance.away;
+                const homeTotal = homePerf.wins + homePerf.losses;
+                const awayTotal = awayPerf.wins + awayPerf.losses;
+                
+                if (homeTotal > 0 || awayTotal > 0) {
+                    insights.push(`\n**🏠 Home vs Away Performance:**`);
+                    if (homeTotal > 0) {
+                        const homeWinRate = ((homePerf.wins / homeTotal) * 100).toFixed(1);
+                        insights.push(`  🏠 Home Teams: ${homeWinRate}% (${homePerf.wins}/${homeTotal})`);
+                    }
+                    if (awayTotal > 0) {
+                        const awayWinRate = ((awayPerf.wins / awayTotal) * 100).toFixed(1);
+                        insights.push(`  ✈️ Away Teams: ${awayWinRate}% (${awayPerf.wins}/${awayTotal})`);
+                    }
+                }
                 
                 insights.push(`\n**Current Strategy**: Focusing on odds discrepancies (weight: ${this.model.weights.oddsDiscrepancy.toFixed(2)})`);
                 
@@ -985,9 +1051,18 @@
                     addLog(`   Win Rate: ${winRate}% ${profitable ? '🎯' : ''}`, profitable ? 'success' : 'warning');
                     addLog(`   ${profitable ? '💰 Profitable!' : '📊 Keep learning...'}`, profitable ? 'success' : 'warning');
                     
-                    savePredictions(); // Save settled predictions
+                    // Remove settled predictions from the list
+                    addLog('', 'info');
+                    addLog('🗑️ Removing settled bets from active list...', 'info');
+                    const beforeCount = predictions.length;
+                    predictions = predictions.filter(p => !p.settled);
+                    const removedCount = beforeCount - predictions.length;
+                    addLog(`   Removed ${removedCount} settled bets`, 'success');
+                    addLog(`   ${predictions.length} active bets remaining`, 'info');
+                    
+                    savePredictions(); // Save updated predictions
                     displayPredictions();
-                    alert(`✅ Settled ${settled} bets!\n\nWins: ${wins} ✅\nLosses: ${losses} ❌\nWin Rate: ${winRate}%\n\nAI is learning from results...`);
+                    alert(`✅ Settled ${settled} bets!\n\nWins: ${wins} ✅\nLosses: ${losses} ❌\nWin Rate: ${winRate}%\n\n🗑️ Removed ${removedCount} finished bets\n📊 ${predictions.length} bets still active\n\nAI is learning from results...`);
                 } else {
                     addLog('   ⏰ No games finished yet', 'warning');
                     alert('⏰ Games not finished yet. Check back later!');
