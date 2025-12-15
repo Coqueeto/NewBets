@@ -325,7 +325,7 @@
                 const homeTeam = game.home_team;
                 const awayTeam = game.away_team;
                 
-                // Collect all odds types
+                // Collect all odds types WITH sportsbook names
                 const h2hOdds = [];
                 const spreadOdds = [];
                 const totalOdds = [];
@@ -335,9 +335,9 @@
                     const spread = book.markets?.find(m => m.key === 'spreads');
                     const totals = book.markets?.find(m => m.key === 'totals');
                     
-                    if (h2h) h2hOdds.push(h2h.outcomes);
-                    if (spread) spreadOdds.push(spread.outcomes);
-                    if (totals) totalOdds.push(totals.outcomes);
+                    if (h2h) h2hOdds.push({ outcomes: h2h.outcomes, book: book.title });
+                    if (spread) spreadOdds.push({ outcomes: spread.outcomes, book: book.title });
+                    if (totals) totalOdds.push({ outcomes: totals.outcomes, book: book.title });
                 });
                 
                 // Array to store all potential bets
@@ -345,11 +345,27 @@
                 
                 // 1. ANALYZE MONEYLINE BETS
                 if (h2hOdds.length >= 2) {
-                    const avgHomeOdds = this.calculateAverage(h2hOdds.map(o => o.find(x => x.name === homeTeam)?.price || 0));
-                    const avgAwayOdds = this.calculateAverage(h2hOdds.map(o => o.find(x => x.name === awayTeam)?.price || 0));
+                    const avgHomeOdds = this.calculateAverage(h2hOdds.map(o => o.outcomes.find(x => x.name === homeTeam)?.price || 0));
+                    const avgAwayOdds = this.calculateAverage(h2hOdds.map(o => o.outcomes.find(x => x.name === awayTeam)?.price || 0));
                     
-                    const bestHomeOdds = Math.max(...h2hOdds.map(o => o.find(x => x.name === homeTeam)?.price || 0));
-                    const bestAwayOdds = Math.max(...h2hOdds.map(o => o.find(x => x.name === awayTeam)?.price || 0));
+                    // Find best odds AND which sportsbook has them
+                    let bestHomeOdds = -Infinity;
+                    let bestHomeBook = '';
+                    let bestAwayOdds = -Infinity;
+                    let bestAwayBook = '';
+                    
+                    h2hOdds.forEach(({ outcomes, book }) => {
+                        const homeOdds = outcomes.find(x => x.name === homeTeam)?.price || -Infinity;
+                        const awayOdds = outcomes.find(x => x.name === awayTeam)?.price || -Infinity;
+                        if (homeOdds > bestHomeOdds) {
+                            bestHomeOdds = homeOdds;
+                            bestHomeBook = book;
+                        }
+                        if (awayOdds > bestAwayOdds) {
+                            bestAwayOdds = awayOdds;
+                            bestAwayBook = book;
+                        }
+                    });
                     
                     const homeDiscrepancy = ((bestHomeOdds - avgHomeOdds) / avgHomeOdds) * 100;
                     const awayDiscrepancy = ((bestAwayOdds - avgAwayOdds) / avgAwayOdds) * 100;
@@ -368,6 +384,8 @@
                             isHomeTeam: true,
                             odds: bestHomeOdds,
                             avgOdds: avgHomeOdds,
+                            bestBook: bestHomeBook,
+                            allBooks: h2hOdds.map(({outcomes, book}) => ({ book, odds: outcomes.find(x => x.name === homeTeam)?.price })).filter(b => b.odds),
                             discrepancy: homeDiscrepancy.toFixed(2),
                             confidence: Math.min(95, 50 + homeScore * 5),
                             type: 'Moneyline',
@@ -611,6 +629,43 @@
                 const now = new Date();
                 const hoursUntilGame = (gameDate - now) / (1000 * 60 * 60);
                 pick.hoursUntilGame = hoursUntilGame;
+                
+                // Generate AI reasoning explanation
+                const reasons = [];
+                const teamPerf = this.model.patterns.teamPerformance[pick.team];
+                if (teamPerf && teamPerf.total >= 3) {
+                    const teamWinRate = ((teamPerf.wins / teamPerf.total) * 100).toFixed(0);
+                    reasons.push(`${pick.team} has ${teamWinRate}% win rate in your history`);
+                }
+                
+                if (parseFloat(pick.discrepancy) > 3.5) {
+                    reasons.push(`${pick.discrepancy}% odds value found (great line!)`);
+                } else if (parseFloat(pick.discrepancy) > 2.0) {
+                    reasons.push(`${pick.discrepancy}% odds edge detected`);
+                }
+                
+                const typePerf = this.model.betTypePerformance[pick.type];
+                if (typePerf && typePerf.total >= 5) {
+                    const typeWinRate = ((typePerf.wins / typePerf.total) * 100).toFixed(0);
+                    if (typeWinRate >= 55) {
+                        reasons.push(`${pick.type} bets are ${typeWinRate}% successful`);
+                    }
+                }
+                
+                if (pick.isHomeTeam) {
+                    const homePerf = this.model.patterns.homeAwayPerformance.home;
+                    const homeTotal = homePerf.wins + homePerf.losses;
+                    if (homeTotal >= 5) {
+                        const homeWR = ((homePerf.wins / homeTotal) * 100).toFixed(0);
+                        reasons.push(`Home team advantage (${homeWR}% on home bets)`);
+                    }
+                }
+                
+                if (this.model.recentTrend && this.model.recentTrend.currentStreak >= 3 && this.model.recentTrend.streakType === 'win') {
+                    reasons.push(`AI on ${this.model.recentTrend.currentStreak}-game win streak 🔥`);
+                }
+                
+                pick.aiReasoning = reasons.length > 0 ? reasons : ['High value bet detected based on odds analysis'];
                 
                 // Only assign confidence tier emoji if AI has proven itself (80%+ win rate)
                 const aiWinRate = this.model.totalBets > 0 ? (this.model.wins / this.model.totalBets) : 0;
@@ -1216,6 +1271,42 @@
                         <div class="text-xl font-bold">${betDetails}</div>
                         <div class="text-sm opacity-90 mt-1">@ ${p.odds > 0 ? '+' : ''}${p.odds}</div>
                     </div>
+                    
+                    <!-- Sportsbook Comparison -->
+                    ${!p.settled && p.bestBook ? `
+                    <div class="mb-3 p-3 bg-green-50 border-2 border-green-200 rounded-lg">
+                        <div class="text-xs font-bold text-green-800 mb-2">🏆 BEST LINE FOUND:</div>
+                        <div class="flex justify-between items-center">
+                            <div class="font-bold text-green-700">${p.bestBook}</div>
+                            <div class="text-xl font-black text-green-600">${p.odds > 0 ? '+' : ''}${p.odds}</div>
+                        </div>
+                        ${p.allBooks && p.allBooks.length > 1 ? `
+                            <details class="mt-2">
+                                <summary class="text-xs text-gray-600 cursor-pointer hover:text-gray-800">Compare ${p.allBooks.length} sportsbooks</summary>
+                                <div class="mt-2 space-y-1">
+                                    ${p.allBooks.sort((a, b) => b.odds - a.odds).map(b => `
+                                        <div class="flex justify-between text-xs ${b.book === p.bestBook ? 'font-bold text-green-700' : 'text-gray-600'}">
+                                            <span>${b.book}</span>
+                                            <span>${b.odds > 0 ? '+' : ''}${b.odds}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </details>
+                        ` : ''}
+                    </div>
+                    ` : ''}
+                    
+                    <!-- AI Reasoning -->
+                    ${!p.settled && p.aiReasoning && p.aiReasoning.length > 0 ? `
+                    <div class="mb-3 p-3 bg-blue-50 border-2 border-blue-200 rounded-lg">
+                        <div class="text-xs font-bold text-blue-800 mb-2">🧠 WHY AI PICKED THIS:</div>
+                        <ul class="space-y-1">
+                            ${p.aiReasoning.map(reason => `
+                                <li class="text-xs text-blue-700">• ${reason}</li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                    ` : ''}
                     
                     <!-- Stats Grid -->
                     <div class="grid grid-cols-3 gap-2 text-center">
