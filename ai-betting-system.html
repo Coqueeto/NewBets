@@ -81,6 +81,7 @@
                 <div class="text-right">
                     <div class="text-sm text-gray-500">AI Status</div>
                     <div class="text-lg font-bold text-green-600">● Learning</div>
+                    <div class="text-xs text-gray-500 mt-1">API: <span id="apiUsage">0/500</span></div>
                 </div>
             </div>
         </div>
@@ -212,6 +213,45 @@
         let currentSport = null;
         let currentSportName = '';
         let predictions = [];
+        
+        // API Usage Tracking
+        function trackApiCall() {
+            const now = new Date();
+            const monthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
+            const apiUsage = JSON.parse(localStorage.getItem('apiUsage') || '{}');
+            
+            if (!apiUsage[monthKey]) {
+                apiUsage[monthKey] = { count: 0, limit: 500 };
+            }
+            apiUsage[monthKey].count++;
+            
+            // Clean up old months
+            const currentMonth = monthKey;
+            Object.keys(apiUsage).forEach(key => {
+                if (key !== currentMonth) delete apiUsage[key];
+            });
+            
+            localStorage.setItem('apiUsage', JSON.stringify(apiUsage));
+            updateApiUsageDisplay();
+            return apiUsage[monthKey];
+        }
+        
+        function getApiUsage() {
+            const now = new Date();
+            const monthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
+            const apiUsage = JSON.parse(localStorage.getItem('apiUsage') || '{}');
+            return apiUsage[monthKey] || { count: 0, limit: 500 };
+        }
+        
+        function updateApiUsageDisplay() {
+            const usage = getApiUsage();
+            const percent = (usage.count / usage.limit * 100).toFixed(0);
+            const color = percent > 90 ? 'text-red-600' : percent > 70 ? 'text-orange-600' : 'text-green-600';
+            const apiDisplay = document.getElementById('apiUsage');
+            if (apiDisplay) {
+                apiDisplay.innerHTML = `<span class="${color} font-bold">${usage.count}/${usage.limit}</span> calls`;
+            }
+        }
         
         // Load predictions from localStorage on startup
         function loadPredictions() {
@@ -670,7 +710,8 @@
                 // Only assign confidence tier emoji if AI has proven itself (80%+ win rate)
                 const aiWinRate = this.model.totalBets > 0 ? (this.model.wins / this.model.totalBets) : 0;
                 
-                if (aiWinRate >= 0.80 && this.model.totalBets >= 20) {
+                // Require statistical significance: 30+ bets minimum for confidence display
+                if (aiWinRate >= 0.80 && this.model.totalBets >= 30) {
                     // AI has proven itself - show confidence tiers
                     if (pick.confidence >= 95) {
                         pick.confidenceTier = '💎'; // Diamond - Elite (95-99%)
@@ -705,6 +746,28 @@
                     pick.superElite = true;
                     pick.aiMastery = true;
                 }
+                
+                // Calculate bet sizing (1-5 units based on confidence)
+                // Only show units if AI has proven itself
+                if (this.model.totalBets >= 30 && aiWinRate >= 0.55) {
+                    if (pick.confidence >= 90) {
+                        pick.units = 5; // MAX BET
+                    } else if (pick.confidence >= 80) {
+                        pick.units = 4; // Large bet
+                    } else if (pick.confidence >= 70) {
+                        pick.units = 3; // Standard bet
+                    } else if (pick.confidence >= 60) {
+                        pick.units = 2; // Small bet
+                    } else {
+                        pick.units = 1; // Minimum bet
+                    }
+                } else {
+                    pick.units = 1; // Default to 1 unit while learning
+                }
+                
+                // Store opening odds for CLV tracking
+                pick.openingOdds = pick.odds;
+                pick.oddsTimestamp = new Date().toISOString();
                 
                 return pick;
             }
@@ -1025,6 +1088,7 @@
                     try {
                         const url = `https://api.the-odds-api.com/v4/sports/${sport.key}/odds?apiKey=${ODDS_API_KEY}&regions=us&markets=h2h,spreads,totals&oddsFormat=american`;
                         const response = await fetch(url);
+                        trackApiCall(); // Count this API request
                         
                         if (!response.ok) continue;
                         
@@ -1119,7 +1183,7 @@
                         alertMsg += `${superElite} MONEY MAKER BET${superElite > 1 ? 'S' : ''}!\n`;
                         alertMsg += `AI Win Rate: ${(aiWinRate * 100).toFixed(1)}% 🔥\n`;
                     }
-                } else if (aiWinRate >= 0.80 && ai.model.totalBets >= 20) {
+                } else if (aiWinRate >= 0.80 && ai.model.totalBets >= 30) {
                     const eliteBets = newPredictions.filter(p => p.confidence >= 95).length;
                     const premiumBets = newPredictions.filter(p => p.confidence >= 85 && p.confidence < 95).length;
                     const strongBets = newPredictions.filter(p => p.confidence >= 75 && p.confidence < 85).length;
@@ -1128,7 +1192,12 @@
                     if (strongBets > 0) alertMsg += `⭐ STRONG bets (75-84%): ${strongBets}\n`;
                 } else {
                     alertMsg += `🧠 AI is learning... (${ai.model.totalBets} bets analyzed)\n`;
-                    alertMsg += `Need ${Math.max(0, 20 - ai.model.totalBets)} more bets to unlock confidence tiers`;
+                    const betsNeeded = Math.max(0, 30 - ai.model.totalBets);
+                    if (betsNeeded > 0) {
+                        alertMsg += `Need ${betsNeeded} more bets for statistical significance\n`;
+                    }
+                    const usage = getApiUsage();
+                    alertMsg += `API Usage: ${usage.count}/${usage.limit} this month`;
                 }
                 
                 alert(alertMsg);
@@ -1262,12 +1331,21 @@
                     <div class="mb-3 p-2 bg-gray-100 rounded text-center">
                         <div class="text-xs text-gray-500">Final Score</div>
                         <div class="font-bold text-sm text-gray-900">${p.finalScore}</div>
+                        ${p.closingOdds && p.openingOdds && p.closingOdds !== p.openingOdds ? `
+                            <div class="text-xs mt-1 ${p.closingOdds > p.openingOdds ? 'text-green-600' : 'text-red-600'}">
+                                CLV: ${p.openingOdds > 0 ? '+' : ''}${p.openingOdds} → ${p.closingOdds > 0 ? '+' : ''}${p.closingOdds}
+                                ${p.closingOdds > p.openingOdds ? '✓ Beat closing line!' : '✗ Worse than close'}
+                            </div>
+                        ` : ''}
                     </div>
                     ` : ''}
                     
                     <!-- Bet Details - PROMINENT DISPLAY -->
                     <div class="bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg p-3 mb-3">
-                        <div class="text-xs font-semibold opacity-90 mb-1">📌 ${betType.toUpperCase()}</div>
+                        <div class="flex justify-between items-center mb-1">
+                            <div class="text-xs font-semibold opacity-90">📌 ${betType.toUpperCase()}</div>
+                            ${p.units && !p.settled ? `<div class="text-xs font-bold bg-white bg-opacity-20 px-2 py-1 rounded">${p.units} UNIT${p.units > 1 ? 'S' : ''}</div>` : ''}
+                        </div>
                         <div class="text-xl font-bold">${betDetails}</div>
                         <div class="text-sm opacity-90 mt-1">@ ${p.odds > 0 ? '+' : ''}${p.odds}</div>
                     </div>
@@ -1386,6 +1464,7 @@
                 for (const sport of sports) {
                     try {
                         const response = await fetch(`https://api.the-odds-api.com/v4/sports/${sport}/scores?apiKey=${ODDS_API_KEY}&daysFrom=3`);
+                        trackApiCall(); // Count this API request
                         if (response.ok) {
                             const scores = await response.json();
                             if (Array.isArray(scores)) {
@@ -1773,6 +1852,7 @@
         loadPredictions(); // Load saved predictions
         updateStats();
         displayPredictions(); // Display loaded predictions
+        updateApiUsageDisplay(); // Show API usage
         
         // Start smart auto-settlement system
         scheduleNextAutoSettle();
