@@ -21,6 +21,11 @@
             border-radius: 20px;
             box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
             border: 1px solid rgba(255, 255, 255, 0.18);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .glass-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.45);
         }
         .ai-badge {
             animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
@@ -28,6 +33,38 @@
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: .5; }
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .slide-in {
+            animation: slideIn 0.5s ease-out;
+        }
+        @keyframes shimmer {
+            0% { background-position: -1000px 0; }
+            100% { background-position: 1000px 0; }
+        }
+        .shimmer {
+            background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0) 100%);
+            background-size: 1000px 100%;
+            animation: shimmer 2s infinite;
+        }
+        .progress-bar {
+            transition: width 0.5s ease;
+        }
+        .stat-increase {
+            animation: statPop 0.5s ease;
+        }
+        @keyframes statPop {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
     </style>
 </head>
@@ -50,25 +87,39 @@
 
         <!-- AI Stats Dashboard -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div class="glass-card p-4">
-                <div class="text-sm text-gray-500">Total Bets Analyzed</div>
+            <div class="glass-card p-4 slide-in">
+                <div class="text-sm text-gray-500 flex justify-between items-center">
+                    <span>Total Bets Analyzed</span>
+                    <span class="text-xs" id="trendIndicator"></span>
+                </div>
                 <div class="text-2xl font-bold text-gray-900" id="totalBets">0</div>
+                <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                    <div class="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full progress-bar" id="totalBetsProgress" style="width: 0%"></div>
+                </div>
                 <div class="text-xs text-gray-400 mt-1">Lifetime learning</div>
             </div>
-            <div class="glass-card p-4">
-                <div class="text-sm text-gray-500">Win Rate</div>
+            <div class="glass-card p-4 slide-in">
+                <div class="text-sm text-gray-500 flex justify-between items-center">
+                    <span>Win Rate</span>
+                    <span class="text-xs font-bold" id="winRateTrend"></span>
+                </div>
                 <div class="text-2xl font-bold text-green-600" id="winRate">0%</div>
-                <div class="text-xs text-gray-400 mt-1">AI accuracy</div>
+                <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                    <div class="bg-gradient-to-r from-green-400 to-emerald-600 h-2 rounded-full progress-bar" id="winRateProgress" style="width: 0%"></div>
+                </div>
+                <div class="text-xs mt-1" id="winRateSubtext">AI accuracy</div>
             </div>
-            <div class="glass-card p-4">
+            <div class="glass-card p-4 slide-in">
                 <div class="text-sm text-gray-500">Best Bet Type</div>
-                <div class="text-xl font-bold text-purple-600" id="confidence">Learning...</div>
+                <div class="text-xl font-bold text-purple-600 gradient-text" id="confidence">Learning...</div>
                 <div class="text-xs text-gray-400 mt-1">Top performer</div>
+                <div class="text-xs font-semibold mt-2" id="recentStreak"></div>
             </div>
-            <div class="glass-card p-4">
+            <div class="glass-card p-4 slide-in">
                 <div class="text-sm text-gray-500">Learning Cycles</div>
                 <div class="text-2xl font-bold text-blue-600" id="cycles">0</div>
                 <div class="text-xs text-gray-400 mt-1">Training iterations</div>
+                <div class="text-xs font-semibold mt-2 text-purple-600" id="momentum"></div>
             </div>
         </div>
 
@@ -222,22 +273,31 @@
                         },
                         confidenceRanges: {},
                         betHistory: [], // Track all completed bets
+                        recentTrend: { last10: [], last20: [], currentStreak: 0, streakType: null },
                         patterns: {
                             spreadSuccess: { over: 0, under: 0, total: 0 },
                             moneylineSuccess: { favorite: 0, underdog: 0, total: 0 },
                             homeAwayPerformance: { home: { wins: 0, losses: 0 }, away: { wins: 0, losses: 0 } },
                             oddsRanges: {},
-                            teamPerformance: {}
+                            teamPerformance: {},
+                            timeOfDaySuccess: { early: 0, mid: 0, late: 0 },
+                            dayOfWeekSuccess: {}
                         },
                         weights: {
                             oddsDiscrepancy: 1.0,
                             homeAdvantage: 0.3,
                             marketEfficiency: 0.5,
+                            recentMomentum: 0.0,
                             betTypePreference: {
                                 Moneyline: 1.0,
                                 Spread: 1.0,
                                 Total: 1.0
                             }
+                        },
+                        adaptiveThresholds: {
+                            minConfidence: 50,
+                            minDiscrepancy: 2.0,
+                            minOdds: -200
                         }
                     };
                 }
@@ -510,6 +570,25 @@
                     this.model.losses++;
                 }
                 
+                // Update recent trend tracking
+                if (!this.model.recentTrend) {
+                    this.model.recentTrend = { last10: [], last20: [], currentStreak: 0, streakType: null };
+                }
+                
+                // Add to recent results
+                this.model.recentTrend.last10.unshift(won);
+                this.model.recentTrend.last20.unshift(won);
+                if (this.model.recentTrend.last10.length > 10) this.model.recentTrend.last10.pop();
+                if (this.model.recentTrend.last20.length > 20) this.model.recentTrend.last20.pop();
+                
+                // Update streak
+                if (this.model.recentTrend.streakType === (won ? 'win' : 'loss')) {
+                    this.model.recentTrend.currentStreak++;
+                } else {
+                    this.model.recentTrend.currentStreak = 1;
+                    this.model.recentTrend.streakType = won ? 'win' : 'loss';
+                }
+                
                 // Determine if bet was on home or away team
                 const betOnHome = prediction.isHomeTeam !== undefined ? prediction.isHomeTeam : false;
                 const betPosition = betOnHome ? 'home' : 'away';
@@ -549,6 +628,15 @@
                 this.model.patterns.teamPerformance[team].total++;
                 if (won) this.model.patterns.teamPerformance[team].wins++;
                 
+                // Track time-based patterns
+                const gameDate = new Date(prediction.gameTime);
+                const dayOfWeek = gameDate.toLocaleDateString('en-US', { weekday: 'long' });
+                if (!this.model.patterns.dayOfWeekSuccess[dayOfWeek]) {
+                    this.model.patterns.dayOfWeekSuccess[dayOfWeek] = { wins: 0, total: 0 };
+                }
+                this.model.patterns.dayOfWeekSuccess[dayOfWeek].total++;
+                if (won) this.model.patterns.dayOfWeekSuccess[dayOfWeek].wins++;
+                
                 // Add to bet history (keep last 100)
                 this.model.betHistory.unshift({
                     date: new Date().toISOString(),
@@ -569,6 +657,9 @@
                     this.model.betHistory = this.model.betHistory.slice(0, 100);
                 }
                 
+                // Auto-learn after every result
+                this.learn();
+                
                 this.saveModel();
             }
             
@@ -578,13 +669,38 @@
                 // Adjust weights based on overall success rates
                 const winRate = this.model.wins / this.model.totalBets;
                 
+                // Calculate recent momentum (last 10 bets)
+                let recentWinRate = 0;
+                if (this.model.recentTrend && this.model.recentTrend.last10.length > 0) {
+                    const recentWins = this.model.recentTrend.last10.filter(w => w).length;
+                    recentWinRate = recentWins / this.model.recentTrend.last10.length;
+                    
+                    // Adjust momentum weight based on recent performance
+                    if (recentWinRate > 0.60) {
+                        this.model.weights.recentMomentum = 0.2; // Hot streak
+                    } else if (recentWinRate < 0.40) {
+                        this.model.weights.recentMomentum = -0.2; // Cold streak, be cautious
+                    } else {
+                        this.model.weights.recentMomentum = 0;
+                    }
+                }
+                
+                // Adaptive thresholds based on performance
+                if (!this.model.adaptiveThresholds) {
+                    this.model.adaptiveThresholds = { minConfidence: 50, minDiscrepancy: 2.0, minOdds: -200 };
+                }
+                
                 if (winRate < 0.45) {
-                    // Increase selectivity
-                    this.model.weights.oddsDiscrepancy *= 1.1;
-                    this.model.weights.marketEfficiency *= 1.05;
-                } else if (winRate > 0.60) {
-                    // Model is working, maintain
-                    this.model.weights.oddsDiscrepancy *= 0.98;
+                    // Increase selectivity - raise thresholds
+                    this.model.weights.oddsDiscrepancy *= 1.15;
+                    this.model.weights.marketEfficiency *= 1.08;
+                    this.model.adaptiveThresholds.minConfidence = Math.min(70, this.model.adaptiveThresholds.minConfidence + 2);
+                    this.model.adaptiveThresholds.minDiscrepancy = Math.min(4.0, this.model.adaptiveThresholds.minDiscrepancy + 0.2);
+                } else if (winRate > 0.55) {
+                    // Model is working well - can be slightly less conservative
+                    this.model.weights.oddsDiscrepancy *= 0.97;
+                    this.model.adaptiveThresholds.minConfidence = Math.max(45, this.model.adaptiveThresholds.minConfidence - 1);
+                    this.model.adaptiveThresholds.minDiscrepancy = Math.max(1.5, this.model.adaptiveThresholds.minDiscrepancy - 0.1);
                 }
                 
                 // Adjust bet type preferences based on performance
@@ -594,13 +710,13 @@
                         const typeWinRate = perf.wins / perf.total;
                         
                         if (typeWinRate > 0.55) {
-                            // This bet type is performing well - increase preference
-                            this.model.weights.betTypePreference[betType] = Math.min(1.5, 
-                                this.model.weights.betTypePreference[betType] * 1.05);
+                            // This bet type is performing well - increase preference significantly
+                            this.model.weights.betTypePreference[betType] = Math.min(1.8, 
+                                this.model.weights.betTypePreference[betType] * 1.08);
                         } else if (typeWinRate < 0.45) {
-                            // This bet type is underperforming - decrease preference
-                            this.model.weights.betTypePreference[betType] = Math.max(0.5, 
-                                this.model.weights.betTypePreference[betType] * 0.95);
+                            // This bet type is underperforming - decrease preference more aggressively
+                            this.model.weights.betTypePreference[betType] = Math.max(0.4, 
+                                this.model.weights.betTypePreference[betType] * 0.92);
                         }
                     }
                 });
@@ -1187,10 +1303,76 @@
                 }
             });
             
+            // Update basic stats
             document.getElementById('totalBets').textContent = totalBets;
             document.getElementById('winRate').textContent = winRate + '%';
             document.getElementById('confidence').textContent = bestBetType;
             document.getElementById('cycles').textContent = ai.model.learningCycles;
+            
+            // Update progress bars with animation
+            const totalBetsProgress = Math.min(100, (totalBets / 100) * 100);
+            document.getElementById('totalBetsProgress').style.width = totalBetsProgress + '%';
+            document.getElementById('winRateProgress').style.width = winRate + '%';
+            
+            // Show trend indicators
+            if (ai.model.recentTrend && ai.model.recentTrend.last10.length >= 5) {
+                const recentWins = ai.model.recentTrend.last10.filter(w => w).length;
+                const recentWinRate = (recentWins / ai.model.recentTrend.last10.length * 100).toFixed(0);
+                const trendEl = document.getElementById('winRateTrend');
+                
+                if (recentWinRate >= 60) {
+                    trendEl.textContent = '🔥 HOT';
+                    trendEl.className = 'text-xs font-bold text-green-600';
+                } else if (recentWinRate <= 40) {
+                    trendEl.textContent = '❄️ COLD';
+                    trendEl.className = 'text-xs font-bold text-red-600';
+                } else {
+                    trendEl.textContent = '➡️ STEADY';
+                    trendEl.className = 'text-xs font-bold text-gray-600';
+                }
+                
+                // Show recent streak
+                const streakEl = document.getElementById('recentStreak');
+                if (ai.model.recentTrend.currentStreak >= 3) {
+                    const streakEmoji = ai.model.recentTrend.streakType === 'win' ? '🔥' : '⚠️';
+                    const streakText = ai.model.recentTrend.streakType === 'win' ? 'Win Streak' : 'Loss Streak';
+                    const streakColor = ai.model.recentTrend.streakType === 'win' ? 'text-green-600' : 'text-red-600';
+                    streakEl.textContent = `${streakEmoji} ${ai.model.recentTrend.currentStreak} ${streakText}`;
+                    streakEl.className = `text-xs font-semibold mt-2 ${streakColor}`;
+                } else {
+                    streakEl.textContent = '';
+                }
+            }
+            
+            // Show win rate assessment
+            const winRateSubtext = document.getElementById('winRateSubtext');
+            if (totalBets >= 10) {
+                if (winRate >= 55) {
+                    winRateSubtext.textContent = '💰 Profitable! (>55%)';
+                    winRateSubtext.className = 'text-xs mt-1 text-green-600 font-semibold';
+                } else if (winRate >= 50) {
+                    winRateSubtext.textContent = '✅ Break-even zone';
+                    winRateSubtext.className = 'text-xs mt-1 text-yellow-600 font-semibold';
+                } else {
+                    winRateSubtext.textContent = '📚 Still learning...';
+                    winRateSubtext.className = 'text-xs mt-1 text-gray-600';
+                }
+            } else {
+                winRateSubtext.textContent = 'AI accuracy';
+                winRateSubtext.className = 'text-xs text-gray-400 mt-1';
+            }
+            
+            // Show momentum indicator
+            const momentumEl = document.getElementById('momentum');
+            if (ai.model.weights.recentMomentum) {
+                if (ai.model.weights.recentMomentum > 0) {
+                    momentumEl.textContent = '📈 Positive momentum';
+                } else if (ai.model.weights.recentMomentum < 0) {
+                    momentumEl.textContent = '📉 Adjusting strategy';
+                } else {
+                    momentumEl.textContent = '';
+                }
+            }
         }
         
         // Auto-settlement system - Smart timing to avoid API limit
