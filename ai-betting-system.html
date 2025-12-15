@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Self-Learning AI Betting System v5.1 ULTRA - API-Sports Multi-Sport Intelligence</title>
+    <title>Self-Learning AI Betting System v5.2 ULTRA - 5 Critical AI Improvements for 95% Win Rate</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
@@ -404,7 +404,7 @@
                     <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">
                         <span class="inline-block float-animation">🤖</span> Self-Learning AI Betting System
                     </h1>
-                    <p class="text-xs sm:text-sm md:text-base text-gray-600 mt-1 leading-relaxed">Smart Learning + Weather Intelligence + API-Sports <span class="text-xs text-purple-600 font-mono font-bold">v5.1 ULTRA</span></p>
+                    <p class="text-xs sm:text-sm md:text-base text-gray-600 mt-1 leading-relaxed">Smart Learning + Weather + API-Sports + 5 AI Improvements <span class="text-xs text-purple-600 font-mono font-bold">v5.2 ULTRA</span></p>
                     <p class="text-xs text-gray-500 mt-2 hidden sm:block">🧠 Loss Avoidance · ☁️ Weather Learning · 🎯 API-Sports Multi-Sport AI · 📊 A/B Testing · 🏈🏀⚾🏒⚽ 5 Sports</p>
                 </div>
                 <div class="text-center md:text-right bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900 dark:to-blue-900 p-4 rounded-lg min-w-[180px]">
@@ -1915,10 +1915,29 @@
                         }
                     }
                     
-                    // Factor 2: Team historical performance
+                    // Factor 2: Team historical performance with IMPROVEMENT 3: Recent form weighting (3x for last 5)
                     const teamPerf = this.model.patterns.teamPerformance[bet.team];
                     if (teamPerf && teamPerf.total >= 5) {
-                        const teamWinRate = teamPerf.wins / teamPerf.total;
+                        let teamWinRate = teamPerf.wins / teamPerf.total; // Default: overall win rate
+                        
+                        // Apply 3x weighting to last 5 games if history available
+                        if (teamPerf.history && teamPerf.history.length >= 5) {
+                            const last5 = teamPerf.history.slice(-5);
+                            const older = teamPerf.history.slice(0, -5);
+                            
+                            const last5Wins = last5.filter(g => g.won).length;
+                            const last5Total = last5.length;
+                            const olderWins = older.filter(g => g.won).length;
+                            const olderTotal = older.length;
+                            
+                            // Weighted formula: recent games count 3x more
+                            const weightedWins = (last5Wins * 3) + olderWins;
+                            const weightedTotal = (last5Total * 3) + olderTotal;
+                            teamWinRate = weightedWins / weightedTotal;
+                            
+                            console.log(`📊 Recent Form: ${bet.team} - Last 5: ${last5Wins}/${last5Total}, Overall: ${teamPerf.wins}/${teamPerf.total}, Weighted: ${(teamWinRate*100).toFixed(1)}%`);
+                        }
+                        
                         if (teamWinRate > 0.65) {
                             adjustedConfidence *= 1.12; // Hot team - boost 12%
                         } else if (teamWinRate < 0.35) {
@@ -1953,6 +1972,28 @@
                         adjustedConfidence *= 1.10; // Huge value found
                     } else if (parseFloat(bet.discrepancy) > 3.5) {
                         adjustedConfidence *= 1.05; // Good value
+                    }
+                    
+                    // Factor 6: IMPROVEMENT 4 - CLV pattern boost
+                    if (this.model.advancedMetrics?.clvTracking) {
+                        const clvData = this.model.advancedMetrics.clvTracking;
+                        
+                        // Check if this bet type has positive CLV history
+                        const btCLV = clvData.byBetType[bet.type];
+                        if (btCLV && btCLV.positiveCLVTotal >= 5) {
+                            const positiveCLVWinRate = btCLV.positiveCLVWins / btCLV.positiveCLVTotal;
+                            if (positiveCLVWinRate > 0.70) {
+                                adjustedConfidence *= 1.10; // Bet type shows sharp timing pattern
+                                console.log(`💎 CLV BOOST: ${bet.type} has ${(positiveCLVWinRate*100).toFixed(0)}% win rate with positive CLV`);
+                            }
+                        }
+                        
+                        // Check if this team has positive average CLV
+                        const teamCLV = clvData.byTeam[bet.team];
+                        if (teamCLV && teamCLV.count >= 3 && teamCLV.avgCLV > 3) {
+                            adjustedConfidence *= 1.08; // We consistently get good value on this team
+                            console.log(`💎 CLV BOOST: ${bet.team} avg CLV is +${teamCLV.avgCLV.toFixed(1)}%`);
+                        }
                     }
                     
                     // Apply adaptive threshold - only accept if meets minimum
@@ -2004,6 +2045,75 @@
                     if (potentialBets.length === 0) return null;
                 }
                 
+                // IMPROVEMENT 1: STRICTER REJECTION - Multiple Losing Patterns = Auto-Reject
+                if (this.model.losingPatterns && this.model.totalBets >= 30) {
+                    potentialBets = potentialBets.filter(bet => {
+                        let losingFlags = 0;
+                        const losingPatterns = this.model.losingPatterns;
+                        
+                        // Check team loss rate
+                        const teamLoss = losingPatterns.teams[bet.team];
+                        if (teamLoss && teamLoss.total >= 5 && teamLoss.losses / teamLoss.total > 0.55) losingFlags++;
+                        
+                        // Check bet type loss rate
+                        const betTypeLoss = losingPatterns.betTypes[bet.type];
+                        if (betTypeLoss && betTypeLoss.total >= 5 && betTypeLoss.losses / betTypeLoss.total > 0.55) losingFlags++;
+                        
+                        // Check odds range loss rate
+                        const oddsRange = Math.floor(Math.abs(bet.odds) / 50) * 50;
+                        const oddsLoss = losingPatterns.oddsRanges[oddsRange];
+                        if (oddsLoss && oddsLoss.total >= 5 && oddsLoss.losses / oddsLoss.total > 0.55) losingFlags++;
+                        
+                        // Check if opponent has strong winning pattern against us
+                        const opponentWin = this.model.moneyMakerPatterns?.teams[bet.opponent];
+                        if (opponentWin && opponentWin.total >= 5 && opponentWin.winRate > 0.65) losingFlags++;
+                        
+                        // REJECT if 2+ losing patterns match (too risky!)
+                        if (losingFlags >= 2) {
+                            console.log(`🚫 REJECTED: ${bet.team} - ${losingFlags} losing patterns detected`);
+                            return false;
+                        }
+                        
+                        return true;
+                    });
+                    
+                    if (potentialBets.length === 0) {
+                        console.log('🛡️ All bets rejected due to multiple losing patterns');
+                        return null;
+                    }
+                }
+                
+                // IMPROVEMENT 5: SMART BANKROLL PROTECTION - Raise thresholds after losses
+                if (this.model.recentTrend && this.model.recentTrend.currentStreak >= 2 && this.model.recentTrend.streakType === 'loss') {
+                    const lossStreak = this.model.recentTrend.currentStreak;
+                    console.log(`⚠️ Loss streak detected: ${lossStreak} losses - Raising standards`);
+                    
+                    // Increase thresholds progressively
+                    const minConfidenceBoost = Math.min(15, lossStreak * 5);
+                    const minDiscrepancyBoost = Math.min(2.0, lossStreak * 0.5);
+                    
+                    potentialBets = potentialBets.filter(bet => {
+                        const requiredConfidence = (this.model.adaptiveThresholds?.minConfidence || 50) + minConfidenceBoost;
+                        const requiredDiscrepancy = (this.model.adaptiveThresholds?.minDiscrepancy || 2.0) + minDiscrepancyBoost;
+                        
+                        if (bet.confidence < requiredConfidence) {
+                            console.log(`🛡️ Protection: ${bet.team} confidence ${bet.confidence}% < ${requiredConfidence}% required`);
+                            return false;
+                        }
+                        if (parseFloat(bet.discrepancy) < requiredDiscrepancy) {
+                            console.log(`🛡️ Protection: ${bet.team} discrepancy ${bet.discrepancy}% < ${requiredDiscrepancy.toFixed(1)}% required`);
+                            return false;
+                        }
+                        
+                        return true;
+                    });
+                    
+                    if (potentialBets.length === 0) {
+                        console.log('🛡️ Bankroll protection: No bets meet raised standards after loss streak');
+                        return null;
+                    }
+                }
+                
                 // Sort by adjusted score (value * learned preference)
                 potentialBets.sort((a, b) => b.adjustedScore - a.adjustedScore);
                 let pick = potentialBets[0];
@@ -2047,6 +2157,25 @@
                         pick.aiReasoning.push(...apiEnhancement.reasons);
                     }
                     pick.apiSportsData = apiSportsData; // Store for learning
+                    
+                    // IMPROVEMENT 2: API-Sports Validation Requirement
+                    // For high-confidence bets (75%+), both AIs MUST agree
+                    if (pick.confidence >= 75 && apiSportsData.predictions) {
+                        const pred = apiSportsData.predictions.predictions;
+                        if (pred && pred.winner) {
+                            const apiPredictedWinner = pred.winner.name;
+                            const ourPick = pick.team;
+                            
+                            if (apiPredictedWinner !== ourPick) {
+                                console.log(`🚫 HIGH-CONFIDENCE REJECTED: Our AI says ${ourPick}, API-Sports says ${apiPredictedWinner}`);
+                                console.log(`   Confidence was ${pick.confidence}% but AIs disagree - TOO RISKY`);
+                                return null; // REJECT - AIs must agree for 75%+ confidence bets
+                            } else {
+                                console.log(`✅ VALIDATION: Both AIs agree on ${ourPick} - High confidence CONFIRMED`);
+                                pick.aiReasoning.push('🎯 Both AIs agree - validated pick');
+                            }
+                        }
+                    }
                 }
                 
                 // Feature 6: Public betting analysis
@@ -2331,13 +2460,101 @@
                 this.model.confidenceRanges[confidenceRange].total++;
                 if (won) this.model.confidenceRanges[confidenceRange].wins++;
                 
-                // Update team performance tracking
+                // Update team performance tracking with IMPROVEMENT 3: Recent form weighting
                 const team = prediction.team;
                 if (!this.model.patterns.teamPerformance[team]) {
-                    this.model.patterns.teamPerformance[team] = { wins: 0, total: 0 };
+                    this.model.patterns.teamPerformance[team] = { wins: 0, total: 0, history: [] };
                 }
+                
+                // Store timestamped result for recent form weighting
+                if (!this.model.patterns.teamPerformance[team].history) {
+                    this.model.patterns.teamPerformance[team].history = [];
+                }
+                this.model.patterns.teamPerformance[team].history.push({
+                    timestamp: Date.now(),
+                    won: won
+                });
+                
+                // Keep last 20 games per team
+                if (this.model.patterns.teamPerformance[team].history.length > 20) {
+                    this.model.patterns.teamPerformance[team].history.shift();
+                }
+                
                 this.model.patterns.teamPerformance[team].total++;
                 if (won) this.model.patterns.teamPerformance[team].wins++;
+                
+                // IMPROVEMENT 4: CLV (Closing Line Value) tracking - learn when our timing is sharp
+                if (prediction.openingOdds && prediction.closingOdds) {
+                    const clv = ((prediction.openingOdds - prediction.closingOdds) / prediction.closingOdds) * 100;
+                    
+                    // Initialize CLV tracking
+                    if (!this.model.advancedMetrics) {
+                        this.model.advancedMetrics = {};
+                    }
+                    if (!this.model.advancedMetrics.clvTracking) {
+                        this.model.advancedMetrics.clvTracking = {
+                            history: [],
+                            byBetType: {},
+                            byTeam: {},
+                            byConfidenceRange: {}
+                        };
+                    }
+                    
+                    // Store CLV result
+                    this.model.advancedMetrics.clvTracking.history.push({
+                        timestamp: Date.now(),
+                        team: prediction.team,
+                        betType: betType,
+                        confidence: prediction.confidence,
+                        clv: clv,
+                        won: won,
+                        openingOdds: prediction.openingOdds,
+                        closingOdds: prediction.closingOdds
+                    });
+                    
+                    // Keep last 50 CLV records
+                    if (this.model.advancedMetrics.clvTracking.history.length > 50) {
+                        this.model.advancedMetrics.clvTracking.history.shift();
+                    }
+                    
+                    // Track CLV by bet type
+                    if (!this.model.advancedMetrics.clvTracking.byBetType[betType]) {
+                        this.model.advancedMetrics.clvTracking.byBetType[betType] = {
+                            avgCLV: 0,
+                            positiveCLVWins: 0,
+                            positiveCLVTotal: 0,
+                            negativeCLVWins: 0,
+                            negativeCLVTotal: 0
+                        };
+                    }
+                    const btCLV = this.model.advancedMetrics.clvTracking.byBetType[betType];
+                    if (clv > 0) {
+                        btCLV.positiveCLVTotal++;
+                        if (won) btCLV.positiveCLVWins++;
+                    } else {
+                        btCLV.negativeCLVTotal++;
+                        if (won) btCLV.negativeCLVWins++;
+                    }
+                    
+                    // Track CLV by team
+                    if (!this.model.advancedMetrics.clvTracking.byTeam[team]) {
+                        this.model.advancedMetrics.clvTracking.byTeam[team] = {
+                            avgCLV: 0,
+                            count: 0,
+                            winRateWithPositiveCLV: 0
+                        };
+                    }
+                    const teamCLV = this.model.advancedMetrics.clvTracking.byTeam[team];
+                    teamCLV.avgCLV = ((teamCLV.avgCLV * teamCLV.count) + clv) / (teamCLV.count + 1);
+                    teamCLV.count++;
+                    
+                    console.log(`💰 CLV: ${team} - Opening: ${prediction.openingOdds}, Closing: ${prediction.closingOdds}, CLV: ${clv > 0 ? '+' : ''}${clv.toFixed(2)}% ${won ? '✅ WIN' : '❌ LOSS'}`);
+                    if (clv > 5) {
+                        console.log(`   🎯 SHARP TIMING: We got ${clv.toFixed(1)}% better odds than closing line`);
+                    } else if (clv < -5) {
+                        console.log(`   ⚠️ LATE TIMING: We got ${Math.abs(clv).toFixed(1)}% worse odds than closing line`);
+                    }
+                }
                 
                 // Track time-based patterns
                 const gameDate = new Date(prediction.gameTime);
@@ -5362,21 +5579,26 @@
         startDailySchedule();
         
         // Display version info
-        console.log('🚀 AI Betting System v5.1 ULTRA - Build: 2025-12-15 23:45 UTC');
+        console.log('🚀 AI Betting System v5.2 ULTRA - Build: 2025-12-16 00:30 UTC');
+        console.log('═══════════════════════════════════════════════════════════════════════════════');
+        console.log('🎯 5 CRITICAL AI IMPROVEMENTS FOR 95% WIN RATE:');
+        console.log('   1️⃣ Stricter Rejection Rules - Auto-reject bets with 2+ losing patterns');
+        console.log('   2️⃣ API-Sports Validation - 75%+ confidence bets require both AIs to agree');
+        console.log('   3️⃣ Recent Form Weighting - Last 5 games count 3x more than older games');
+        console.log('   4️⃣ CLV Tracking - Learn and boost bets with positive closing line value');
+        console.log('   5️⃣ Smart Bankroll Protection - Raise thresholds after 2+ consecutive losses');
+        console.log('═══════════════════════════════════════════════════════════════════════════════');
         console.log('🧠 ADVANCED AI: Bayesian Updates · Kelly Criterion · Ensemble Learning · Time-Decay · Regression Detection');
         console.log('💎 ULTRA FEATURES: Monte Carlo · Line Movement · Market Efficiency · Correlation Analysis · Sharp Detection');
-        console.log('💰 v5.1 ULTRA Features: Bankroll Management · Sport-Specific Models · Confidence Intervals · Live Monitoring');
-        console.log('🎯 v5.1 ULTRA: Smart Learning (Loss Avoidance) · Weather Intelligence (FREE API) · A/B Testing · 95%+ Win Rate Target');
-        console.log('🆕 NEW: API-Sports Multi-Sport Intelligence (500 calls/day) · Cross-AI Validation · Team Form Analysis');
-        console.log('✅ Core: Multi-bet types, CLV Tracking, Model Versioning, Export/Import, Dark Mode, Notifications');
+        console.log('🆕 API-Sports Multi-Sport Intelligence (500 calls/day) · Cross-AI Validation · Team Form Analysis');
+        console.log('✅ Core: Multi-bet types, Model Versioning, Export/Import, Dark Mode, Notifications');
         console.log(`📊 Loaded ${predictions.length} saved predictions`);
-        console.log(`🎯 Target: 95% Win Rate through ultra-comprehensive analysis`);
         console.log('🏈🏀⚾🏒⚽ API-Sports covers: NFL, NBA, MLB, NHL, Soccer (EPL, MLS, UCL, La Liga, Bundesliga, Serie A, Ligue 1)');
     </script>
     
     <!-- Version Footer -->
     <div style="text-align: center; padding: 20px; color: rgba(255,255,255,0.7); font-size: 12px;">
-        v5.1 ULTRA • Build: Dec 15, 2025 23:45 UTC • Smart Learning · Weather Intelligence · API-Sports Multi-Sport AI · 95% Win Rate Target
+        v5.2 ULTRA • Build: Dec 16, 2025 00:30 UTC • 5 Critical AI Improvements for 95% Win Rate • Zero Additional API Calls
     </div>
 </body>
 </html>
