@@ -606,22 +606,43 @@
                 pick.gameTime = game.commence_time;
                 pick.gameId = game.id;
                 
-                // Assign confidence tier emoji
-                if (pick.confidence >= 95) {
-                    pick.confidenceTier = '💎'; // Diamond - Elite (95-99%)
-                    pick.tierName = 'ELITE';
-                } else if (pick.confidence >= 85) {
-                    pick.confidenceTier = '🔥'; // Fire - Premium (85-94%)
-                    pick.tierName = 'PREMIUM';
-                } else if (pick.confidence >= 75) {
-                    pick.confidenceTier = '⭐'; // Star - Strong (75-84%)
-                    pick.tierName = 'STRONG';
-                } else if (pick.confidence >= 65) {
-                    pick.confidenceTier = '✅'; // Check - Good (65-74%)
-                    pick.tierName = 'GOOD';
+                // Only assign confidence tier emoji if AI has proven itself (80%+ win rate)
+                const aiWinRate = this.model.totalBets > 0 ? (this.model.wins / this.model.totalBets) : 0;
+                
+                if (aiWinRate >= 0.80 && this.model.totalBets >= 20) {
+                    // AI has proven itself - show confidence tiers
+                    if (pick.confidence >= 95) {
+                        pick.confidenceTier = '💎'; // Diamond - Elite (95-99%)
+                        pick.tierName = 'ELITE';
+                        pick.showTier = true;
+                    } else if (pick.confidence >= 85) {
+                        pick.confidenceTier = '🔥'; // Fire - Premium (85-94%)
+                        pick.tierName = 'PREMIUM';
+                        pick.showTier = true;
+                    } else if (pick.confidence >= 75) {
+                        pick.confidenceTier = '⭐'; // Star - Strong (75-84%)
+                        pick.tierName = 'STRONG';
+                        pick.showTier = true;
+                    } else if (pick.confidence >= 65) {
+                        pick.confidenceTier = '✅'; // Check - Good (65-74%)
+                        pick.tierName = 'GOOD';
+                        pick.showTier = true;
+                    } else {
+                        pick.confidenceTier = '📊'; // Chart - Standard (50-64%)
+                        pick.tierName = 'STANDARD';
+                        pick.showTier = true;
+                    }
                 } else {
-                    pick.confidenceTier = '📊'; // Chart - Standard (50-64%)
-                    pick.tierName = 'STANDARD';
+                    // AI still learning - no tier badges
+                    pick.confidenceTier = null;
+                    pick.tierName = 'LEARNING';
+                    pick.showTier = false;
+                }
+                
+                // Mark super elite bets when AI has 95%+ win rate
+                if (aiWinRate >= 0.95 && this.model.totalBets >= 30) {
+                    pick.superElite = true;
+                    pick.aiMastery = true;
                 }
                 
                 return pick;
@@ -1007,17 +1028,31 @@
                 
                 console.log(`Total predictions: ${predictions.length} (${oldCount} kept + ${newPredictions.length} new)`);
                 
-                // Count confidence tiers
-                const eliteBets = newPredictions.filter(p => p.confidence >= 95).length;
-                const premiumBets = newPredictions.filter(p => p.confidence >= 85 && p.confidence < 95).length;
-                const strongBets = newPredictions.filter(p => p.confidence >= 75 && p.confidence < 85).length;
-                
                 displayPredictions();
                 
+                // Only show tier breakdown if AI has earned it
+                const aiWinRate = ai.model.totalBets > 0 ? (ai.model.wins / ai.model.totalBets) : 0;
                 let alertMsg = `✅ Added ${newPredictions.length} new bets! Total active: ${predictions.length} (kept ${oldCount} existing)\n\n`;
-                if (eliteBets > 0) alertMsg += `💎 ELITE bets (95%+): ${eliteBets}\n`;
-                if (premiumBets > 0) alertMsg += `🔥 PREMIUM bets (85-94%): ${premiumBets}\n`;
-                if (strongBets > 0) alertMsg += `⭐ STRONG bets (75-84%): ${strongBets}\n`;
+                
+                if (aiWinRate >= 0.95 && ai.model.totalBets >= 30) {
+                    const superElite = newPredictions.filter(p => p.superElite).length;
+                    if (superElite > 0) {
+                        alertMsg += `\n💰💎💰 AI MASTER MODE ACTIVE! 💰💎💰\n`;
+                        alertMsg += `${superElite} MONEY MAKER BET${superElite > 1 ? 'S' : ''}!\n`;
+                        alertMsg += `AI Win Rate: ${(aiWinRate * 100).toFixed(1)}% 🔥\n`;
+                    }
+                } else if (aiWinRate >= 0.80 && ai.model.totalBets >= 20) {
+                    const eliteBets = newPredictions.filter(p => p.confidence >= 95).length;
+                    const premiumBets = newPredictions.filter(p => p.confidence >= 85 && p.confidence < 95).length;
+                    const strongBets = newPredictions.filter(p => p.confidence >= 75 && p.confidence < 85).length;
+                    if (eliteBets > 0) alertMsg += `💎 ELITE bets (95%+): ${eliteBets}\n`;
+                    if (premiumBets > 0) alertMsg += `🔥 PREMIUM bets (85-94%): ${premiumBets}\n`;
+                    if (strongBets > 0) alertMsg += `⭐ STRONG bets (75-84%): ${strongBets}\n`;
+                } else {
+                    alertMsg += `🧠 AI is learning... (${ai.model.totalBets} bets analyzed)\n`;
+                    alertMsg += `Need ${Math.max(0, 20 - ai.model.totalBets)} more bets to unlock confidence tiers`;
+                }
+                
                 alert(alertMsg);
                 
             } catch (error) {
@@ -1054,27 +1089,62 @@
                 
                 const timeStr = gameDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
                 
-                // Determine border color based on confidence tier
+                // Calculate potential payout for display
+                const odds = p.odds || 0;
+                let payout100 = 0;
+                let payout500 = 0;
+                let payout1000 = 0;
+                if (odds > 0) {
+                    payout100 = 100 + (100 * odds / 100);
+                    payout500 = 500 + (500 * odds / 100);
+                    payout1000 = 1000 + (1000 * odds / 100);
+                } else if (odds < 0) {
+                    payout100 = 100 + (100 * 100 / Math.abs(odds));
+                    payout500 = 500 + (500 * 100 / Math.abs(odds));
+                    payout1000 = 1000 + (1000 * 100 / Math.abs(odds));
+                }
+                
+                // Determine border color based on confidence tier and AI mastery
                 let borderClass = 'border-gray-200';
                 let bgClass = '';
                 if (p.settled) {
                     borderClass = p.won ? 'border-green-400' : 'border-red-400';
                     bgClass = p.won ? 'bg-green-50' : 'bg-red-50';
-                } else if (p.confidence >= 95) {
+                } else if (p.superElite && p.showTier) {
+                    // AI has 95%+ win rate - SUPER OBVIOUS
+                    borderClass = 'border-8 border-yellow-400 shadow-2xl animate-pulse';
+                    bgClass = 'bg-gradient-to-r from-yellow-100 via-green-100 to-yellow-100';
+                } else if (p.showTier && p.confidence >= 95) {
                     borderClass = 'border-purple-500 shadow-lg';
                     bgClass = 'bg-gradient-to-r from-purple-50 to-pink-50';
-                } else if (p.confidence >= 85) {
+                } else if (p.showTier && p.confidence >= 85) {
                     borderClass = 'border-orange-500';
                     bgClass = 'bg-orange-50';
-                } else if (p.confidence >= 75) {
+                } else if (p.showTier && p.confidence >= 75) {
                     borderClass = 'border-yellow-400';
                     bgClass = 'bg-yellow-50';
                 }
                 
                 return `
                 <div class="border-2 ${borderClass} ${bgClass} rounded-lg p-4 hover:border-purple-400 transition slide-in">
-                    <!-- Confidence Tier Badge -->
-                    ${p.confidenceTier && !p.settled ? `
+                    <!-- Super Elite Money Alert (AI 95%+ Win Rate) -->
+                    ${p.superElite && p.showTier && !p.settled ? `
+                        <div class="mb-3 p-4 bg-gradient-to-r from-yellow-400 via-green-400 to-yellow-400 rounded-lg border-4 border-yellow-600 animate-pulse">
+                            <div class="text-center">
+                                <div class="text-3xl mb-2">💰 💎 💰 MONEY MAKER 💰 💎 💰</div>
+                                <div class="text-lg font-black text-gray-900">AI MASTER PICK - ${p.confidence.toFixed(0)}% CONFIDENCE</div>
+                                <div class="text-sm font-bold text-gray-800 mt-2">POTENTIAL PAYOUT:</div>
+                                <div class="flex justify-around mt-2 text-gray-900 font-bold">
+                                    <div>$100 → <span class="text-green-700 text-xl">$${payout100.toFixed(0)}</span></div>
+                                    <div>$500 → <span class="text-green-700 text-xl">$${payout500.toFixed(0)}</span></div>
+                                    <div>$1000 → <span class="text-green-700 text-2xl">$${payout1000.toFixed(0)}</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    <!-- Confidence Tier Badge (Only if AI earned it with 80%+ win rate) -->
+                    ${p.showTier && p.confidenceTier && !p.settled && !p.superElite ? `
                         <div class="flex items-center justify-between mb-2">
                             <div class="inline-block ${p.confidence >= 95 ? 'bg-gradient-to-r from-purple-600 to-pink-600' : p.confidence >= 85 ? 'bg-gradient-to-r from-orange-500 to-red-500' : 'bg-gradient-to-r from-yellow-500 to-orange-500'} text-white text-xs font-bold px-3 py-1 rounded-full">
                                 ${p.confidenceTier} ${p.tierName} BET
@@ -1097,10 +1167,17 @@
                                 ${p.settled ? `<span class="ml-2 font-bold ${p.won ? 'text-green-600' : 'text-red-600'}">${p.won ? 'WON' : 'LOST'}</span>` : '<span class="ml-2 text-orange-600">PENDING</span>'}
                             </div>
                         </div>
-                        <div class="text-right">
-                            <div class="text-xs text-gray-400">Confidence</div>
-                            <div class="text-2xl font-bold ${p.confidence >= 85 ? 'text-green-600' : 'text-purple-600'}">${p.confidence.toFixed(0)}%</div>
-                        </div>
+                        ${p.showTier && !p.superElite ? `
+                            <div class="text-right">
+                                <div class="text-xs text-gray-400">Confidence</div>
+                                <div class="text-2xl font-bold ${p.confidence >= 85 ? 'text-green-600' : 'text-purple-600'}">${p.confidence.toFixed(0)}%</div>
+                            </div>
+                        ` : !p.settled ? `
+                            <div class="text-right">
+                                <div class="text-xs text-gray-400">Status</div>
+                                <div class="text-sm font-bold text-blue-600">🧠 Learning</div>
+                            </div>
+                        ` : ''}
                     </div>
                     
                     ${p.settled && p.finalScore ? `
