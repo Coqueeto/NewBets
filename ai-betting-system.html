@@ -88,7 +88,34 @@
         @media (max-width: 640px) {
             .glass-card { padding: 12px !important; }
             h1 { font-size: 1.5rem !important; }
+            h2 { font-size: 1.25rem !important; }
             .sportsbook-table { overflow-x: auto; display: block; }
+            .mobile-hide { display: none !important; }
+            .mobile-stack { flex-direction: column !important; }
+            .mobile-full { width: 100% !important; }
+            .mobile-text-sm { font-size: 0.875rem !important; }
+            .mobile-compact { padding: 8px !important; margin: 4px 0 !important; }
+            /* Touch-friendly buttons */
+            button { min-height: 44px; min-width: 44px; }
+            /* Reduce grid columns on mobile */
+            .grid-cols-2, .grid-cols-3, .grid-cols-4 { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
+            .md\:grid-cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+        }
+        /* Tablet Optimization */
+        @media (min-width: 641px) and (max-width: 1024px) {
+            .tablet-compact { padding: 16px !important; }
+            .grid-cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+        }
+        /* Desktop Enhancements */
+        @media (min-width: 1025px) {
+            .desktop-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; }
+            .glass-card:hover { transform: translateY(-4px); }
+        }
+        /* Print Optimization */
+        @media print {
+            body { background: white; }
+            .glass-card { box-shadow: none; border: 1px solid #ddd; }
+            button, .mobile-hide { display: none !important; }
         }
     </style>
 </head>
@@ -97,18 +124,18 @@
         
         <!-- Header -->
         <div class="glass-card p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold text-gray-900">🤖 Self-Learning AI Betting System</h1>
-                    <p class="text-gray-600 mt-1">Advanced machine learning for profitable betting <span class="text-xs text-purple-600 font-mono">v3.5 Ultra</span></p>
-                    <p class="text-xs text-gray-500 mt-1">🧠 Bayesian · 📊 Kelly · 📈 Ensemble · ⚡ Time-Decay · 🎯 Regression · 💎 Monte Carlo</p>
+            <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+                <div class="text-center md:text-left">
+                    <h1 class="text-2xl md:text-3xl font-bold text-gray-900">🤖 Self-Learning AI Betting System</h1>
+                    <p class="text-sm md:text-base text-gray-600 mt-1">Advanced machine learning for profitable betting <span class="text-xs text-purple-600 font-mono">v4.0 COMPLETE</span></p>
+                    <p class="text-xs text-gray-500 mt-1 hidden md:block">🧠 Bayesian · 📊 Kelly · 📈 Ensemble · ⚡ Time-Decay · 🎯 Regression · 💎 Monte Carlo</p>
                 </div>
-                <div class="text-right">
+                <div class="text-center md:text-right">
                     <div class="text-sm text-gray-500">AI Status</div>
                     <div class="text-lg font-bold text-green-600">● Learning</div>
                     <div class="text-xs text-gray-500 mt-1">API: <span id="apiUsage">0/500</span></div>
                     <div class="text-xs text-gray-400 mt-1">Storage: <span id="storageUsage">0%</span></div>
-                    <button onclick="toggleDarkMode()" class="mt-2 text-xs px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors" id="darkModeBtn">🌙 Dark</button>
+                    <button onclick="toggleDarkMode()" class="mt-2 text-xs md:text-sm px-3 py-2 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors" id="darkModeBtn">🌙 Dark</button>
                 </div>
             </div>
         </div>
@@ -152,9 +179,9 @@
         </div>
 
         <!-- Sport Selection -->
-        <div class="glass-card p-6">
-            <h2 class="text-xl font-bold text-gray-900 mb-4">Select Sport</h2>
-            <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div class="glass-card p-4 md:p-6">
+            <h2 class="text-lg md:text-xl font-bold text-gray-900 mb-4">🏆 Select Sport</h2>
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3">
                 <button onclick="selectSport('americanfootball_nfl', 'NFL')" class="sport-btn p-4 border-2 border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition">
                     <div class="text-2xl mb-2">🏈</div>
                     <div class="font-semibold">NFL</div>
@@ -203,19 +230,19 @@
         </div>
 
         <!-- AI Control Panel -->
-        <div class="glass-card p-6">
-            <h2 class="text-xl font-bold text-gray-900 mb-4">🧠 AI Control Panel</h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <button id="analyzeBtn" onclick="analyzeGames()" class="bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold py-4 px-6 rounded-lg hover:from-purple-700 hover:to-blue-700 transition shadow-lg disabled:opacity-50">
-                    <div class="text-lg">🔍 Analyze Games</div>
+        <div class="glass-card p-4 md:p-6">
+            <h2 class="text-lg md:text-xl font-bold text-gray-900 mb-4">🧠 AI Control Panel</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+                <button id="analyzeBtn" onclick="analyzeGames()" class="bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold py-3 md:py-4 px-4 md:px-6 rounded-lg hover:from-purple-700 hover:to-blue-700 transition shadow-lg disabled:opacity-50 min-h-[60px]">
+                    <div class="text-base md:text-lg">🔍 Analyze Games</div>
                     <div class="text-xs opacity-90">Find value bets with AI</div>
                 </button>
-                <button id="settleBtn" onclick="settleBets()" class="bg-gradient-to-r from-green-600 to-teal-600 text-white font-bold py-4 px-6 rounded-lg hover:from-green-700 hover:to-teal-700 transition shadow-lg disabled:opacity-50">
-                    <div class="text-lg">✅ Settle Results</div>
+                <button id="settleBtn" onclick="settleBets()" class="bg-gradient-to-r from-green-600 to-teal-600 text-white font-bold py-3 md:py-4 px-4 md:px-6 rounded-lg hover:from-green-700 hover:to-teal-700 transition shadow-lg disabled:opacity-50 min-h-[60px]">
+                    <div class="text-base md:text-lg">✅ Settle Results</div>
                     <div class="text-xs opacity-90">Get real game outcomes</div>
                 </button>
-                <button id="learnBtn" onclick="runLearningCycle()" class="bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold py-4 px-6 rounded-lg hover:from-orange-700 hover:to-red-700 transition shadow-lg disabled:opacity-50">
-                    <div class="text-lg">🎓 Learn & Improve</div>
+                <button id="learnBtn" onclick="runLearningCycle()" class="bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold py-3 md:py-4 px-4 md:px-6 rounded-lg hover:from-orange-700 hover:to-red-700 transition shadow-lg disabled:opacity-50 min-h-[60px]">
+                    <div class="text-base md:text-lg">🎓 Learn & Improve</div>
                     <div class="text-xs opacity-90">AI self-improvement</div>
                 </button>
             </div>
@@ -243,36 +270,36 @@
         </div>
 
         <!-- Bankroll Tracker -->
-        <div class="glass-card p-6" id="bankrollWidget">
-            <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">💰 Bankroll Management</h2>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="text-center p-3 bg-green-50 dark:bg-green-900 rounded-lg">
-                    <div class="text-sm text-gray-600 dark:text-gray-300">Current Bankroll</div>
-                    <div class="text-2xl font-bold text-green-600 dark:text-green-400" id="currentBankroll">$10,000</div>
+        <div class="glass-card p-4 md:p-6" id="bankrollWidget">
+            <h2 class="text-lg md:text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">💰 Bankroll Management</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                <div class="text-center p-2 md:p-3 bg-green-50 dark:bg-green-900 rounded-lg">
+                    <div class="text-xs md:text-sm text-gray-600 dark:text-gray-300">Current Bankroll</div>
+                    <div class="text-lg md:text-2xl font-bold text-green-600 dark:text-green-400" id="currentBankroll">$10,000</div>
                 </div>
-                <div class="text-center p-3 bg-blue-50 dark:bg-blue-900 rounded-lg">
-                    <div class="text-sm text-gray-600 dark:text-gray-300">Total P&L</div>
-                    <div class="text-2xl font-bold text-blue-600 dark:text-blue-400" id="totalPnL">$0.00</div>
+                <div class="text-center p-2 md:p-3 bg-blue-50 dark:bg-blue-900 rounded-lg">
+                    <div class="text-xs md:text-sm text-gray-600 dark:text-gray-300">Total P&L</div>
+                    <div class="text-lg md:text-2xl font-bold text-blue-600 dark:text-blue-400" id="totalPnL">$0.00</div>
                 </div>
-                <div class="text-center p-3 bg-purple-50 dark:bg-purple-900 rounded-lg">
-                    <div class="text-sm text-gray-600 dark:text-gray-300">ROI</div>
-                    <div class="text-2xl font-bold text-purple-600 dark:text-purple-400" id="roiPercent">0.0%</div>
+                <div class="text-center p-2 md:p-3 bg-purple-50 dark:bg-purple-900 rounded-lg">
+                    <div class="text-xs md:text-sm text-gray-600 dark:text-gray-300">ROI</div>
+                    <div class="text-lg md:text-2xl font-bold text-purple-600 dark:text-purple-400" id="roiPercent">0.0%</div>
                 </div>
-                <div class="text-center p-3 bg-orange-50 dark:bg-orange-900 rounded-lg">
-                    <div class="text-sm text-gray-600 dark:text-gray-300">Max Drawdown</div>
-                    <div class="text-2xl font-bold text-orange-600 dark:text-orange-400" id="maxDrawdown">0.0%</div>
+                <div class="text-center p-2 md:p-3 bg-orange-50 dark:bg-orange-900 rounded-lg">
+                    <div class="text-xs md:text-sm text-gray-600 dark:text-gray-300">Max Drawdown</div>
+                    <div class="text-lg md:text-2xl font-bold text-orange-600 dark:text-orange-400" id="maxDrawdown">0.0%</div>
                 </div>
             </div>
-            <div id="stopLossAlert" style="display: none;" class="mt-4 p-3 bg-red-100 dark:bg-red-900 border-l-4 border-red-500 text-red-700 dark:text-red-300 rounded">
+            <div id="stopLossAlert" style="display: none;" class="mt-3 md:mt-4 p-2 md:p-3 bg-red-100 dark:bg-red-900 border-l-4 border-red-500 text-red-700 dark:text-red-300 rounded text-sm md:text-base">
                 <strong>🛑 STOP LOSS TRIGGERED</strong> - Bankroll has dropped 20% from peak. Review strategy before continuing.
             </div>
         </div>
 
         <!-- Learning Insights -->
-        <div class="glass-card p-6">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">📊 AI Learning Insights</h2>
-                <button onclick="createModelSnapshot()" class="px-3 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 text-xs" id="snapshotBtn">💾 Snapshot</button>
+        <div class="glass-card p-4 md:p-6">
+            <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-2">
+                <h2 class="text-lg md:text-xl font-bold text-gray-900 dark:text-gray-100">📊 AI Learning Insights</h2>
+                <button onclick="createModelSnapshot()" class="px-3 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 text-xs md:text-sm" id="snapshotBtn">💾 Snapshot</button>
             </div>
             <div id="insights" class="space-y-4">
                 <div class="text-center text-gray-400 py-8">
@@ -282,21 +309,21 @@
         </div>
 
         <!-- Performance Analytics -->
-        <div class="glass-card p-6">
-            <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">📈 Performance Analytics</h2>
+        <div class="glass-card p-4 md:p-6">
+            <h2 class="text-lg md:text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">📈 Performance Analytics</h2>
             <canvas id="performanceChart" height="80"></canvas>
-            <div class="grid grid-cols-3 gap-4 mt-4 text-sm">
-                <div class="text-center">
-                    <div class="text-gray-500">7-Day Win Rate</div>
-                    <div class="text-xl font-bold text-green-600" id="weekWinRate">-</div>
+            <div class="grid grid-cols-3 gap-2 md:gap-4 mt-4 text-xs md:text-sm">
+                <div class="text-center p-2 bg-green-50 dark:bg-green-900 rounded">
+                    <div class="text-gray-500 dark:text-gray-400">7-Day WR</div>
+                    <div class="text-lg md:text-xl font-bold text-green-600 dark:text-green-400" id="weekWinRate">-</div>
                 </div>
-                <div class="text-center">
-                    <div class="text-gray-500">ROI (Units)</div>
-                    <div class="text-xl font-bold text-blue-600" id="roiUnits">-</div>
+                <div class="text-center p-2 bg-blue-50 dark:bg-blue-900 rounded">
+                    <div class="text-gray-500 dark:text-gray-400">ROI (Units)</div>
+                    <div class="text-lg md:text-xl font-bold text-blue-600 dark:text-blue-400" id="roiUnits">-</div>
                 </div>
-                <div class="text-center">
-                    <div class="text-gray-500">Current Streak</div>
-                    <div class="text-xl font-bold text-purple-600" id="currentStreakDisplay">-</div>
+                <div class="text-center p-2 bg-purple-50 dark:bg-purple-900 rounded">
+                    <div class="text-gray-500 dark:text-gray-400">Streak</div>
+                    <div class="text-lg md:text-xl font-bold text-purple-600 dark:text-purple-400" id="currentStreakDisplay">-</div>
                 </div>
             </div>
         </div>
