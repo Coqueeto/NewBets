@@ -1997,7 +1997,9 @@
                     }
                     
                     // Apply adaptive threshold - only accept if meets minimum
-                    const minConfidence = this.model.adaptiveThresholds?.minConfidence || 50;
+                    // During early learning (< 30 bets), use lower threshold to gather data
+                    const baseMinConfidence = this.model.totalBets < 30 ? 45 : 50;
+                    const minConfidence = this.model.adaptiveThresholds?.minConfidence || baseMinConfidence;
                     if (adjustedConfidence < minConfidence) {
                         bet.confidence = 0; // Reject - below threshold
                         return;
@@ -2013,8 +2015,9 @@
                 if (potentialBets.length === 0) return null;
                 
                 // Ultra-selective filter for 95%+ win rate targeting
-                // Only pick bets that pass ALL advanced criteria
-                if (this.model.totalBets >= 50 && this.model.wins / this.model.totalBets >= 0.85) {
+                // Only activate after sufficient learning data (100+ bets and 85%+ win rate)
+                if (this.model.totalBets >= 100 && this.model.wins / this.model.totalBets >= 0.85) {
+                    console.log('🎯 ULTRA-SELECTIVE MODE: 95% win rate targeting active');
                     potentialBets = potentialBets.filter(bet => {
                         // Criteria 1: Must be in high-performing bet type
                         const typePerf = this.model.betTypePerformance[bet.type];
@@ -2046,30 +2049,32 @@
                 }
                 
                 // IMPROVEMENT 1: STRICTER REJECTION - Multiple Losing Patterns = Auto-Reject
-                if (this.model.losingPatterns && this.model.totalBets >= 30) {
+                // Only activate after 50+ bets for sufficient learning data
+                if (this.model.losingPatterns && this.model.totalBets >= 50) {
+                    console.log('🚫 STRICTER REJECTION MODE: Active (checking losing patterns)');
                     potentialBets = potentialBets.filter(bet => {
                         let losingFlags = 0;
                         const losingPatterns = this.model.losingPatterns;
                         
-                        // Check team loss rate
+                        // Check team loss rate (must have 8+ bets and 60%+ loss rate to flag)
                         const teamLoss = losingPatterns.teams[bet.team];
-                        if (teamLoss && teamLoss.total >= 5 && teamLoss.losses / teamLoss.total > 0.55) losingFlags++;
+                        if (teamLoss && teamLoss.total >= 8 && teamLoss.losses / teamLoss.total > 0.60) losingFlags++;
                         
                         // Check bet type loss rate
                         const betTypeLoss = losingPatterns.betTypes[bet.type];
-                        if (betTypeLoss && betTypeLoss.total >= 5 && betTypeLoss.losses / betTypeLoss.total > 0.55) losingFlags++;
+                        if (betTypeLoss && betTypeLoss.total >= 8 && betTypeLoss.losses / betTypeLoss.total > 0.60) losingFlags++;
                         
                         // Check odds range loss rate
                         const oddsRange = Math.floor(Math.abs(bet.odds) / 50) * 50;
                         const oddsLoss = losingPatterns.oddsRanges[oddsRange];
-                        if (oddsLoss && oddsLoss.total >= 5 && oddsLoss.losses / oddsLoss.total > 0.55) losingFlags++;
+                        if (oddsLoss && oddsLoss.total >= 8 && oddsLoss.losses / oddsLoss.total > 0.60) losingFlags++;
                         
                         // Check if opponent has strong winning pattern against us
                         const opponentWin = this.model.moneyMakerPatterns?.teams[bet.opponent];
-                        if (opponentWin && opponentWin.total >= 5 && opponentWin.winRate > 0.65) losingFlags++;
+                        if (opponentWin && opponentWin.total >= 8 && opponentWin.winRate > 0.70) losingFlags++;
                         
-                        // REJECT if 2+ losing patterns match (too risky!)
-                        if (losingFlags >= 2) {
+                        // REJECT if 3+ losing patterns match (extremely risky!)
+                        if (losingFlags >= 3) {
                             console.log(`🚫 REJECTED: ${bet.team} - ${losingFlags} losing patterns detected`);
                             return false;
                         }
