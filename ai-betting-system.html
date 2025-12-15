@@ -1980,6 +1980,20 @@
                     this.recordABTest(prediction, won, prediction.wasTestModel);
                 }
                 
+                // Track A/B test results for strategy comparison
+                if (prediction.abTestGroup && this.model.abTest && this.model.abTest.groups[prediction.abTestGroup]) {
+                    this.model.abTest.groups[prediction.abTestGroup].results.push({
+                        won: won,
+                        profit: won ? (Math.abs(prediction.odds) / 100) : -1,
+                        timestamp: Date.now()
+                    });
+                    
+                    // Analyze A/B test results every 60 bets
+                    if (this.model.totalBets % 60 === 0) {
+                        this.analyzeABTestResults();
+                    }
+                }
+                
                 // Auto-learn after every result
                 this.learn();
                 
@@ -2180,6 +2194,44 @@
                 this.optimizeEnsembleWeights();
                 
                 return this.generateInsights();
+            }
+            
+            // Get time of year bonus (playoffs, rivalry periods) - NO API NEEDED
+            getTimeOfYearBonus(pick) {
+                const now = new Date();
+                const month = now.getMonth(); // 0-11
+                const sport = pick.sport;
+                
+                // Playoff/Championship periods by sport
+                const playoffMonths = {
+                    'NFL': [0, 1], // January-February (Super Bowl)
+                    'NBA': [3, 4, 5], // April-June (NBA Finals)
+                    'NHL': [3, 4, 5], // April-June (Stanley Cup)
+                    'MLB': [9, 10], // October-November (World Series)
+                    'NCAAF': [11, 0], // December-January (Bowl Season)
+                    'UCL': [4, 5], // May-June (Champions League Final)
+                    'EPL': [4], // May (Title race)
+                    'MLS': [10, 11] // November-December (MLS Cup)
+                };
+                
+                // Check if in playoff period
+                if (playoffMonths[sport] && playoffMonths[sport].includes(month)) {
+                    return 5; // Playoff intensity bonus
+                }
+                
+                // Rivalry weeks (sport-specific)
+                const rivalryWeeks = {
+                    'NFL': [11, 12], // Thanksgiving, rivalry week
+                    'NCAAF': [10, 11], // Rivalry games before bowl season
+                    'EPL': [2, 3, 11], // Derby months
+                    'MLS': [7, 8] // Summer rivalries
+                };
+                
+                if (rivalryWeeks[sport] && rivalryWeeks[sport].includes(month)) {
+                    return 3; // Rivalry week bonus
+                }
+                
+                return 0;
             }
             
             // CRITICAL: Recalibrate confidence if AI is overconfident or underconfident
@@ -2477,6 +2529,23 @@
                     if (pick.isPrimeTime && patterns.contextualFactors.primeTime >= 3) {
                         score += 3;
                         factors.push('prime time');
+                    }
+                }
+                
+                // 7. Time of year bonus (playoffs, rivalry weeks) - NO API NEEDED
+                const timeBonus = this.getTimeOfYearBonus(pick);
+                if (timeBonus > 0) {
+                    score += timeBonus;
+                    factors.push(timeBonus === 5 ? 'playoff intensity' : 'rivalry week');
+                }
+                
+                // 8. Rest advantage (3+ days rest vs back-to-back) - NO API NEEDED
+                if (pick.restDays !== undefined) {
+                    if (pick.restDays >= 3 && pick.opponentRestDays <= 1) {
+                        score += 5;
+                        factors.push('rest advantage');
+                    } else if (pick.restDays === 0 && pick.opponentRestDays >= 2) {
+                        score -= 5; // Penalize back-to-back vs rested opponent
                     }
                 }
                 
@@ -2835,7 +2904,7 @@
                 return pick;
             }
             
-            // NEW Feature 9: A/B Testing Framework
+            // IMPROVED: A/B Testing with Threshold Strategies (NO API NEEDED)
             shouldUseTestModel() {
                 if (!this.model.abTesting.enabled) return false;
                 return Math.random() < this.model.abTesting.testWeight;
@@ -2844,12 +2913,35 @@
             recordABTest(pick, won, wasTestModel) {
                 if (!this.model.abTesting.enabled) return;
                 
+                // Track which threshold strategy was used
+                const strategy = pick.abTestGroup || 'Balanced';
+                if (!this.model.abTesting.strategyResults) {
+                    this.model.abTesting.strategyResults = {
+                        'Conservative': [],
+                        'Balanced': [],
+                        'Aggressive': []
+                    };
+                }
+                
+                this.model.abTesting.strategyResults[strategy].push({
+                    timestamp: Date.now(),
+                    confidence: pick.confidence,
+                    discrepancy: pick.discrepancy,
+                    won,
+                    profit: won ? (Math.abs(pick.odds) / 100) : -1
+                });
+                
                 this.model.abTesting.testResults.push({
                     timestamp: Date.now(),
                     confidence: pick.confidence,
                     won,
                     model: wasTestModel ? 'test' : 'control'
                 });
+                
+                // Evaluate strategies every 60 bets
+                if (this.model.totalBets % 60 === 0) {
+                    this.evaluateABStrategies();
+                }
                 
                 // Evaluate after 30 bets
                 if (this.model.abTesting.testResults.length >= 30) {
@@ -2865,6 +2957,103 @@
                         }
                     }
                 }
+            }
+            
+            // Evaluate A/B test strategies - NO API NEEDED
+            evaluateABStrategies() {
+                if (!this.model.abTesting.strategyResults) return;
+                
+                const strategies = this.model.abTesting.strategyResults;
+                let bestStrategy = null;
+                let bestROI = -Infinity;
+                
+                console.log('\n📊 A/B STRATEGY EVALUATION:');
+                Object.keys(strategies).forEach(name => {
+                    const results = strategies[name];
+                    if (results.length >= 15) {
+                        const wins = results.filter(r => r.won).length;
+                        const winRate = wins / results.length;
+                        const totalProfit = results.reduce((sum, r) => sum + r.profit, 0);
+                        const roi = totalProfit / results.length;
+                        
+                        console.log(`  ${name}: ${results.length} bets | ${(winRate*100).toFixed(1)}% WR | ${roi.toFixed(3)} ROI`);
+                        
+                        if (roi > bestROI && winRate > 0.50) {
+                            bestROI = roi;
+                            bestStrategy = name;
+                        }
+                    }
+                });
+                
+                if (bestStrategy && bestROI > 0.10) {
+                    console.log(`🏆 WINNER: ${bestStrategy} with ${(bestROI*100).toFixed(1)}% ROI`);
+                    
+                    // Adopt winning strategy thresholds
+                    const thresholds = {
+                        'Conservative': { conf: 75, disc: 4.0 },
+                        'Balanced': { conf: 65, disc: 3.0 },
+                        'Aggressive': { conf: 55, disc: 2.0 }
+                    };
+                    
+                    const winner = thresholds[bestStrategy];
+                    this.model.adaptiveThresholds.minConfidence = winner.conf;
+                    this.model.adaptiveThresholds.minDiscrepancy = winner.disc;
+                }
+            }
+            
+            // Calculate bankroll volatility - NO API NEEDED
+            calculateBankrollVolatility() {
+                if (!this.model.performanceHistory || this.model.performanceHistory.length < 10) {
+                    return 0.20; // High volatility assumed early on
+                }
+                
+                const recent = this.model.performanceHistory.slice(0, 20);
+                const returns = recent.map(bet => bet.won ? 
+                    (Math.abs(bet.odds) / 100) : -1);
+                
+                // Calculate standard deviation
+                const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
+                const variance = returns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / returns.length;
+                const stdDev = Math.sqrt(variance);
+                
+                return stdDev; // Higher = more volatile = smaller Kelly fraction
+            }
+            
+            // Time of year bonus - NO API NEEDED
+            getTimeOfYearBonus(pick) {
+                const now = new Date();
+                const month = now.getMonth(); // 0-11
+                const sport = pick.sport;
+                
+                // Playoff/Championship periods
+                const playoffMonths = {
+                    'NFL': [0, 1], // Super Bowl
+                    'NBA': [3, 4, 5], // NBA Finals
+                    'NHL': [3, 4, 5], // Stanley Cup
+                    'MLB': [9, 10], // World Series
+                    'NCAAF': [11, 0], // Bowl Season
+                    'UCL': [4, 5], // Champions League Final
+                    'EPL': [4], // Title race
+                    'MLS': [10, 11] // MLS Cup
+                };
+                
+                if (playoffMonths[sport] && playoffMonths[sport].includes(month)) {
+                    return 5; // Playoff bonus
+                }
+                
+                // Rivalry weeks
+                const rivalryWeeks = {
+                    'NFL': [11, 12],
+                    'NCAAF': [10, 11],
+                    'EPL': [2, 3, 11],
+                    'MLS': [7, 8]
+                };
+                
+                if (rivalryWeeks[sport] && rivalryWeeks[sport].includes(month)) {
+                    return 3; // Rivalry bonus
+                }
+                
+                return 0;
             }
             
             // NEW Feature 10: Live Odds Monitoring (API-efficient - only for active bets)
