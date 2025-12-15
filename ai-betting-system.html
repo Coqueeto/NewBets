@@ -395,8 +395,8 @@
                     <div class="text-xs opacity-90">Get real game outcomes</div>
                 </button>
                 <button id="learnBtn" onclick="runLearningCycle()" class="bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold py-4 md:py-5 px-4 md:px-6 rounded-xl hover:from-orange-700 hover:to-red-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 min-h-[72px] md:min-h-[80px]">
-                    <div class="text-base md:text-lg mb-1">🎓 Learn & Improve</div>
-                    <div class="text-xs opacity-90">AI self-improvement</div>
+                    <div class="text-base md:text-lg mb-1">🎓 Extra Learning</div>
+                    <div class="text-xs opacity-90">Auto-learns after settlement</div>
                 </button>
             </div>
             <div class="mt-4 flex justify-center">
@@ -3393,13 +3393,49 @@
                     displayPredictions();
                     updateStats(); // Update stats after settlement
                     
+                    // 🤖 AUTOMATIC AI LEARNING - Learn from every settlement
+                    addLog('', 'info');
+                    addLog('═══════════════════════════════════════', 'info');
+                    addLog('🧠 AUTOMATIC AI LEARNING CYCLE', 'header');
+                    addLog(`   Analyzing ${settled} settled bets...`, 'info');
+                    
+                    const learningInsights = ai.learn();
+                    learningInsights.forEach(insight => {
+                        addLog(`   • ${insight}`, 'success');
+                    });
+                    
+                    addLog('', 'info');
+                    addLog('✅ AI has automatically improved its strategy!', 'success');
+                    addLog(`   Total Learning Cycles: ${ai.model.learningCycles}`, 'info');
+                    addLog('═══════════════════════════════════════', 'info');
+                    
+                    // Update insights display
+                    const insightsContainer = document.getElementById('insights');
+                    if (insightsContainer) {
+                        insightsContainer.innerHTML = `
+                            <div class="bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-300 rounded-lg p-6">
+                                <h3 class="text-lg font-bold text-green-900 mb-3">🤖 Automatic AI Learning Complete</h3>
+                                <div class="text-sm text-gray-600 mb-3">
+                                    <strong>Learned from:</strong> ${settled} bets (${wins}W/${losses}L - ${winRate}% WR)
+                                </div>
+                                <div class="space-y-2 text-sm text-gray-700">
+                                    ${learningInsights.map(insight => `<div>• ${insight}</div>`).join('')}
+                                </div>
+                                <div class="mt-4 text-xs text-gray-500">
+                                    💡 AI learns automatically after every settlement - no manual intervention needed!
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
                     // Send notification
-                    const notifMessage = `✅ ${settled} bets settled - ${wins}W/${losses}L (${winRate}%)`;
+                    const notifMessage = `✅ ${settled} bets settled - ${wins}W/${losses}L (${winRate}%) 🧠 AI learned automatically!`;
                     if (silentMode) {
                         showNotification(notifMessage, profitable ? 'success' : 'warning');
                         console.log(`🤖 Auto-settled ${settled} bets (${wins}W/${losses}L - ${winRate}% WR) - ${predictions.length} active remaining`);
+                        console.log(`🧠 AI automatically completed learning cycle #${ai.model.learningCycles}`);
                     } else {
-                        alert(`✅ Settled ${settled} bets!\n\nWins: ${wins} ✅\nLosses: ${losses} ❌\nWin Rate: ${winRate}%\n\n🗑️ Removed ${removedCount} finished bets\n📊 ${predictions.length} bets still active\n\nAI is learning from results...`);
+                        alert(`✅ Settled ${settled} bets!\n\nWins: ${wins} ✅\nLosses: ${losses} ❌\nWin Rate: ${winRate}%\n\n🗑️ Removed ${removedCount} finished bets\n📊 ${predictions.length} bets still active\n\n🤖 AI AUTOMATICALLY LEARNED from results!\n📚 Learning Cycle #${ai.model.learningCycles} complete`);
                     }
                 } else {
                     addLog('   ⏰ No games finished yet', 'warning');
@@ -3434,9 +3470,15 @@
             const container = document.getElementById('insights');
             container.innerHTML = `
                 <div class="bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200 rounded-lg p-6">
-                    <h3 class="text-lg font-bold text-purple-900 mb-3">🎓 AI Learning Complete</h3>
+                    <h3 class="text-lg font-bold text-purple-900 mb-3">🎓 Manual AI Learning Complete</h3>
+                    <div class="text-sm text-gray-600 mb-3">
+                        <strong>Note:</strong> AI learns automatically after every settlement. This button triggers an extra learning cycle.
+                    </div>
                     <div class="space-y-2 text-sm text-gray-700">
                         ${insights.map(insight => `<div>• ${insight}</div>`).join('')}
+                    </div>
+                    <div class="mt-4 text-xs text-gray-500">
+                        💡 Total Learning Cycles: ${ai.model.learningCycles}
                     </div>
                 </div>
             `;
@@ -3444,7 +3486,7 @@
             updateStats();
             updateBankrollUI();
             
-            alert('🧠 AI has completed a learning cycle and updated its strategy!');
+            alert('🧠 Manual learning cycle complete!\n\n💡 Remember: AI learns automatically after every settlement.\nYou don\'t need to click this button unless you want extra training.');
         }
         
         function updateStats() {
