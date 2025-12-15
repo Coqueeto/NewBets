@@ -1108,6 +1108,61 @@
         class BettingAI {
             constructor() {
                 this.loadModel();
+                this.initializeStadiumCoordinates();
+            }
+            
+            // Stadium coordinates for weather tracking (FREE Open-Meteo API)
+            initializeStadiumCoordinates() {
+                this.stadiumCoords = {
+                    // NFL Teams
+                    'Arizona Cardinals': { lat: 33.5276, lon: -112.2626, outdoor: false },
+                    'Atlanta Falcons': { lat: 33.7555, lon: -84.4009, outdoor: false },
+                    'Baltimore Ravens': { lat: 39.2780, lon: -76.6227, outdoor: true },
+                    'Buffalo Bills': { lat: 42.7738, lon: -78.7870, outdoor: true },
+                    'Carolina Panthers': { lat: 35.2258, lon: -80.8529, outdoor: true },
+                    'Chicago Bears': { lat: 41.8623, lon: -87.6167, outdoor: true },
+                    'Cincinnati Bengals': { lat: 39.0954, lon: -84.5160, outdoor: true },
+                    'Cleveland Browns': { lat: 41.5061, lon: -81.6995, outdoor: true },
+                    'Dallas Cowboys': { lat: 32.7473, lon: -97.0945, outdoor: false },
+                    'Denver Broncos': { lat: 39.7439, lon: -105.0201, outdoor: true },
+                    'Detroit Lions': { lat: 42.3400, lon: -83.0456, outdoor: false },
+                    'Green Bay Packers': { lat: 44.5013, lon: -88.0622, outdoor: true },
+                    'Houston Texans': { lat: 29.6847, lon: -95.4107, outdoor: false },
+                    'Indianapolis Colts': { lat: 39.7601, lon: -86.1639, outdoor: false },
+                    'Jacksonville Jaguars': { lat: 30.3240, lon: -81.6374, outdoor: true },
+                    'Kansas City Chiefs': { lat: 39.0489, lon: -94.4839, outdoor: true },
+                    'Las Vegas Raiders': { lat: 36.0909, lon: -115.1833, outdoor: false },
+                    'Los Angeles Chargers': { lat: 33.9534, lon: -118.3390, outdoor: true },
+                    'Los Angeles Rams': { lat: 33.9534, lon: -118.3390, outdoor: true },
+                    'Miami Dolphins': { lat: 25.9580, lon: -80.2389, outdoor: true },
+                    'Minnesota Vikings': { lat: 44.9738, lon: -93.2575, outdoor: false },
+                    'New England Patriots': { lat: 42.0909, lon: -71.2643, outdoor: true },
+                    'New Orleans Saints': { lat: 29.9511, lon: -90.0812, outdoor: false },
+                    'New York Giants': { lat: 40.8128, lon: -74.0742, outdoor: true },
+                    'New York Jets': { lat: 40.8128, lon: -74.0742, outdoor: true },
+                    'Philadelphia Eagles': { lat: 39.9008, lon: -75.1675, outdoor: true },
+                    'Pittsburgh Steelers': { lat: 40.4468, lon: -80.0158, outdoor: true },
+                    'San Francisco 49ers': { lat: 37.4032, lon: -121.9696, outdoor: true },
+                    'Seattle Seahawks': { lat: 47.5952, lon: -122.3316, outdoor: true },
+                    'Tampa Bay Buccaneers': { lat: 27.9759, lon: -82.5033, outdoor: true },
+                    'Tennessee Titans': { lat: 36.1665, lon: -86.7713, outdoor: true },
+                    'Washington Commanders': { lat: 38.9076, lon: -76.8645, outdoor: true },
+                    
+                    // MLB Teams (all outdoor except Miami, Tampa, Milwaukee)
+                    'Arizona Diamondbacks': { lat: 33.4452, lon: -112.0667, outdoor: false },
+                    'Miami Marlins': { lat: 25.7781, lon: -80.2197, outdoor: false },
+                    'Tampa Bay Rays': { lat: 27.7682, lon: -82.6534, outdoor: false },
+                    'Milwaukee Brewers': { lat: 43.0280, lon: -87.9712, outdoor: false },
+                    
+                    // MLS Teams (outdoor soccer)
+                    'Atlanta United': { lat: 33.7555, lon: -84.4009, outdoor: false },
+                    'Inter Miami': { lat: 26.1932, lon: -80.1610, outdoor: true },
+                    'LA Galaxy': { lat: 33.8644, lon: -118.2611, outdoor: true },
+                    'LAFC': { lat: 34.0122, lon: -118.2437, outdoor: true },
+                    
+                    // Default cities for teams not listed
+                    'default': { lat: 39.8283, lon: -98.5795, outdoor: true } // Center of USA
+                };
             }
             
             loadModel() {
@@ -1280,7 +1335,7 @@
                 updateStats();
             }
             
-            analyzeGame(game) {
+            async analyzeGame(game) {
                 if (!game.bookmakers || game.bookmakers.length < 2) return null;
                 
                 const homeTeam = game.home_team;
@@ -1636,12 +1691,14 @@
                 pick.confidence *= injuryImpact.adjustConfidence;
                 if (injuryImpact.reason) pick.aiReasoning.push(injuryImpact.reason);
                 
-                // Feature 5: Weather adjustments
-                const weatherImpact = this.checkWeatherImpact(sportName, homeTeam);
+                // Feature 5: Weather adjustments (FREE Open-Meteo API)
+                const weatherImpact = await this.checkWeatherImpact(sportName, homeTeam);
                 if (weatherImpact.reason) {
                     pick.aiReasoning.push(weatherImpact.reason);
                     if (pick.type === 'Total') pick.confidence *= (1 + weatherImpact.adjustTotal);
+                    if (weatherImpact.adjustConfidence) pick.confidence *= weatherImpact.adjustConfidence;
                 }
+                pick.weather = weatherImpact.weatherData; // Store weather data
                 
                 // Feature 6: Public betting analysis
                 pick = this.analyzePublicBetting(pick);
@@ -2236,7 +2293,8 @@
             
             // CRITICAL: Recalibrate confidence if AI is overconfident or underconfident
             recalibrateConfidence() {
-                Object.keys(this.model.confidenceRanges).forEach(range => {<br/>                    const data = this.model.confidenceRanges[range];
+                Object.keys(this.model.confidenceRanges).forEach(range => {
+                    const data = this.model.confidenceRanges[range];
                     if (data.total >= 5) {
                         const predictedWR = parseInt(range) / 100;
                         const actualWR = data.wins / data.total;
@@ -2800,16 +2858,40 @@
             }
             
             // NEW Feature 5: Weather Adjustments (placeholder - would need API)
-            checkWeatherImpact(sport, gameLocation) {
-                // This would integrate with weather API - for now, seasonal adjustments
-                const month = new Date().getMonth();
+            async checkWeatherImpact(sport, gameLocation) {
+                // Get real-time weather from FREE Open-Meteo API
+                const weather = await this.getWeatherForGame(gameLocation, sport);
                 
-                // Winter months (Dec-Feb) for outdoor sports
-                if ((sport === 'NFL' || sport === 'NCAAF' || sport === 'MLB') && (month >= 11 || month <= 1)) {
-                    return { adjustTotal: -0.05, reason: 'Cold weather - favor under' };
+                if (!weather) {
+                    // Fallback to seasonal adjustments for indoor/non-outdoor sports
+                    const month = new Date().getMonth();
+                    if ((sport === 'NFL' || sport === 'NCAAF' || sport === 'MLB') && (month >= 11 || month <= 1)) {
+                        return { adjustTotal: -0.05, reason: '❄️ Winter season - favor under' };
+                    }
+                    return { adjustTotal: 0, reason: null };
                 }
                 
-                return { adjustTotal: 0, reason: null };
+                // Calculate weather impact using real-time data
+                const impact = this.calculateWeatherImpact(weather);
+                
+                let adjustTotal = 0;
+                let reasons = [...impact.factors];
+                
+                // Weather affects totals more than moneyline
+                if (weather.snow > 0 || weather.rain > 0.1 || weather.windSpeed > 15) {
+                    adjustTotal = -0.10; // Bad weather = lower scoring
+                    if (weather.snow > 0) adjustTotal = -0.15; // Snow = much lower scoring
+                }
+                
+                // Combine reasons
+                const reason = reasons.length > 0 ? reasons.join(', ') : null;
+                
+                return { 
+                    adjustTotal, 
+                    adjustConfidence: 1 + (impact.score / 100), // Convert score to multiplier
+                    reason,
+                    weatherData: weather
+                };
             }
             
             // NEW Feature 6: Public Betting Detection (Fade the Public)
@@ -3017,6 +3099,122 @@
                 const stdDev = Math.sqrt(variance);
                 
                 return stdDev; // Higher = more volatile = smaller Kelly fraction
+            }
+            
+            // Fetch weather from FREE Open-Meteo API (no key, unlimited)
+            async getWeatherForGame(team, sport) {
+                // Only fetch for outdoor sports
+                const outdoorSports = ['NFL', 'NCAAF', 'MLB', 'MLS'];
+                if (!outdoorSports.includes(sport)) {
+                    return null;
+                }
+                
+                // Get stadium coordinates
+                const coords = this.stadiumCoords[team] || this.stadiumCoords['default'];
+                
+                // Skip if indoor stadium
+                if (!coords.outdoor) {
+                    return null;
+                }
+                
+                try {
+                    const url = `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current=temperature_2m,precipitation,rain,snowfall,wind_speed_10m,wind_gusts_10m,weather_code&temperature_unit=fahrenheit&wind_speed_unit=mph`;
+                    
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    
+                    if (data.current) {
+                        const current = data.current;
+                        return {
+                            temp: current.temperature_2m,
+                            precipitation: current.precipitation,
+                            rain: current.rain,
+                            snow: current.snowfall,
+                            windSpeed: current.wind_speed_10m,
+                            windGusts: current.wind_gusts_10m,
+                            weatherCode: current.weather_code,
+                            description: this.getWeatherDescription(current.weather_code)
+                        };
+                    }
+                } catch (error) {
+                    console.warn('Weather API error:', error);
+                }
+                
+                return null;
+            }
+            
+            // Weather code to description (WMO codes)
+            getWeatherDescription(code) {
+                const codes = {
+                    0: 'Clear',
+                    1: 'Mainly Clear',
+                    2: 'Partly Cloudy',
+                    3: 'Overcast',
+                    45: 'Foggy',
+                    48: 'Foggy',
+                    51: 'Light Drizzle',
+                    53: 'Drizzle',
+                    55: 'Heavy Drizzle',
+                    61: 'Light Rain',
+                    63: 'Rain',
+                    65: 'Heavy Rain',
+                    71: 'Light Snow',
+                    73: 'Snow',
+                    75: 'Heavy Snow',
+                    77: 'Snow Grains',
+                    80: 'Light Showers',
+                    81: 'Showers',
+                    82: 'Heavy Showers',
+                    85: 'Snow Showers',
+                    86: 'Heavy Snow Showers',
+                    95: 'Thunderstorm',
+                    96: 'Thunderstorm with Hail',
+                    99: 'Severe Thunderstorm'
+                };
+                return codes[code] || 'Unknown';
+            }
+            
+            // Calculate weather impact on game
+            calculateWeatherImpact(weather) {
+                if (!weather) return { score: 0, factors: [] };
+                
+                let score = 0;
+                let factors = [];
+                
+                // Extreme temperatures
+                if (weather.temp < 20) {
+                    score -= 5;
+                    factors.push(`🥶 Extreme cold (${weather.temp.toFixed(0)}°F)`);
+                } else if (weather.temp > 95) {
+                    score -= 3;
+                    factors.push(`🔥 Extreme heat (${weather.temp.toFixed(0)}°F)`);
+                }
+                
+                // Precipitation
+                if (weather.snow > 0) {
+                    score -= 10;
+                    factors.push(`❄️ Snowing (${weather.snow} in)`);
+                } else if (weather.rain > 0.1) {
+                    score -= 5;
+                    factors.push(`🌧️ Rainy (${weather.rain.toFixed(1)} in)`);
+                }
+                
+                // Wind
+                if (weather.windGusts > 25) {
+                    score -= 8;
+                    factors.push(`💨 High winds (${weather.windGusts.toFixed(0)} mph)`);
+                } else if (weather.windSpeed > 15) {
+                    score -= 3;
+                    factors.push(`💨 Windy (${weather.windSpeed.toFixed(0)} mph)`);
+                }
+                
+                // Severe weather
+                if (weather.weatherCode >= 95) {
+                    score -= 15;
+                    factors.push(`⛈️ ${weather.description}`);
+                }
+                
+                return { score, factors };
             }
             
             // Time of year bonus - NO API NEEDED
@@ -3351,11 +3549,12 @@
                             console.log(`${sport.name}: ${games.length} games (from cache ⚡)`);
                         }
                         
-                        games.forEach(game => {
+                        // Process games sequentially to handle async weather API
+                        for (const game of games) {
                             // Skip if we already have any prediction for this game
                             if (existingGameIds.has(game.id)) {
                                 console.log(`Skipping ${game.id} - already have prediction`);
-                                return;
+                                continue;
                             }
                             
                             // Calculate timing for game filtering
@@ -3368,21 +3567,21 @@
                             // ONLY allow future games if AI has 95%+ win rate
                             if (hoursUntilGame > 24 && aiWinRate < 0.95) {
                                 console.log(`⏭️ Skipping ${game.home_team} vs ${game.away_team} - game in ${hoursUntilGame.toFixed(1)}h (AI needs 95%+ win rate for future games)`);
-                                return;
+                                continue;
                             }
                             
-                            const pick = ai.analyzeGame(game);
+                            const pick = await ai.analyzeGame(game);
                             if (pick) {
                                 // Check if this is a ML bet that contradicts an existing ML bet
                                 if (pick.type === 'Moneyline') {
                                     // Check if we already have a ML bet for either team in this matchup
                                     if (existingMLTeams.has(pick.team)) {
                                         console.log(`⚠️ Already have ML bet for ${pick.team} - keeping original pick`);
-                                        return;
+                                        continue;
                                     }
                                     if (existingMLTeams.has(pick.opponent)) {
                                         console.log(`⚠️ Already have ML bet for ${pick.opponent} - keeping original pick`);
-                                        return;
+                                        continue;
                                     }
                                 }
                                 
@@ -3391,7 +3590,7 @@
                                 console.log('AI Pick:', pick);
                                 newPredictions.push(pick);
                             }
-                        });
+                        }
                     } catch (error) {
                         console.error(`Error analyzing ${sport.name}:`, error);
                     }
