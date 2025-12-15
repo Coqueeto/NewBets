@@ -124,7 +124,8 @@
             /* Better grid layouts on mobile */
             .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
             .grid-cols-3, .grid-cols-4, .grid-cols-5 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
-            .md\:grid-cols-3, .md\:grid-cols-4 { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
+            .md\:grid-cols-3, .md\:grid-cols-4, .md\:grid-cols-8 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
+            .xl\:grid-cols-8 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
             /* Improved stats cards */
             .stat-card { padding: 12px !important; }
             .text-2xl { font-size: 1.5rem !important; }
@@ -148,6 +149,8 @@
             .grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
             .grid-cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 12px !important; }
             .grid-cols-5 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+            .md\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 12px !important; }
+            .xl\:grid-cols-8 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 12px !important; }
             h1 { font-size: 2rem !important; }
             h2 { font-size: 1.5rem !important; }
             button { min-height: 48px; padding: 12px 20px; }
@@ -172,6 +175,9 @@
             /* Enhanced grid layouts */
             .grid-cols-4 { gap: 16px !important; }
             .grid-cols-5 { gap: 16px !important; }
+            .md\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 16px !important; }
+            .lg\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 16px !important; }
+            .xl\:grid-cols-8 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 16px !important; }
             /* Better typography */
             h1 { font-size: 2.25rem !important; }
             h2 { font-size: 1.75rem !important; }
@@ -183,6 +189,10 @@
             /* Sidebar layout for analytics */
             .desktop-sidebar-layout { display: grid; grid-template-columns: 1fr 350px; gap: 24px; }
         }
+        /* Extra Large Desktop (1280px+) - Full 8-sport grid */
+        @media (min-width: 1280px) {
+            .xl\:grid-cols-8 { grid-template-columns: repeat(8, minmax(0, 1fr)) !important; gap: 16px !important; }
+        }
         /* Large Desktop (1440px+) */
         @media (min-width: 1440px) {
             .max-w-7xl { max-width: 1400px; }
@@ -190,6 +200,7 @@
             h1 { font-size: 2.5rem !important; }
             h2 { font-size: 2rem !important; }
             .desktop-grid { gap: 32px; }
+            .xl\:grid-cols-8 { gap: 20px !important; }
         }
         /* Responsive Utilities */
         .mobile-only { display: block; }
