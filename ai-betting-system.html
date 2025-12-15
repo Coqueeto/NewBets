@@ -916,12 +916,33 @@
             try {
                 addLog('🔍 Starting settlement process...', 'header');
                 addLog('', 'info');
-                addLog(`📡 Fetching scores from API for ${currentSport}...`, 'info');
+                addLog(`📡 Fetching scores from API for all sports...`, 'info');
                 
-                const response = await fetch(`https://api.the-odds-api.com/v4/sports/${currentSport}/scores?apiKey=${ODDS_API_KEY}&daysFrom=3`);
-                const scores = await response.json();
+                // Fetch scores from all sports
+                const sports = [
+                    'americanfootball_nfl',
+                    'basketball_nba',
+                    'icehockey_nhl',
+                    'baseball_mlb',
+                    'americanfootball_ncaaf'
+                ];
                 
-                addLog(`✅ Received ${scores.length} game results from API`, 'success');
+                let allScores = [];
+                for (const sport of sports) {
+                    try {
+                        const response = await fetch(`https://api.the-odds-api.com/v4/sports/${sport}/scores?apiKey=${ODDS_API_KEY}&daysFrom=3`);
+                        if (response.ok) {
+                            const scores = await response.json();
+                            if (Array.isArray(scores)) {
+                                allScores = allScores.concat(scores);
+                            }
+                        }
+                    } catch (e) {
+                        console.error(`Error fetching ${sport} scores:`, e);
+                    }
+                }
+                
+                addLog(`✅ Received ${allScores.length} game results from API`, 'success');
                 addLog(`📊 Checking ${predictions.length} predictions...`, 'info');
                 addLog('', 'info');
                 addLog('═══════════════════════════════════════', 'info');
@@ -939,7 +960,7 @@
                         return;
                     }
                     
-                    const score = scores.find(s => s.id === pred.gameId);
+                    const score = allScores.find(s => s.id === pred.gameId);
                     
                     if (!score) {
                         addLog(`⏰ Prediction #${index + 1}: Game not found in results`, 'warning');
