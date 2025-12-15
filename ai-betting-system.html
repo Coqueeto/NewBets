@@ -104,58 +104,160 @@
         body.dark-mode .bg-gray-100 { background-color: #2a2a3e !important; }
         body.dark-mode .bg-gray-200 { background-color: #3a3a4e !important; }
         body.dark-mode .border-gray-300 { border-color: #4a4a5e !important; }
-        /* Mobile Optimization */
+        /* Mobile Optimization (Enhanced) */
         @media (max-width: 640px) {
-            .glass-card { padding: 12px !important; }
-            h1 { font-size: 1.5rem !important; }
-            h2 { font-size: 1.25rem !important; }
+            body { padding: 8px !important; }
+            .max-w-7xl { padding: 0; }
+            .glass-card { padding: 16px !important; margin-bottom: 12px !important; }
+            h1 { font-size: 1.5rem !important; line-height: 1.3 !important; }
+            h2 { font-size: 1.125rem !important; line-height: 1.4 !important; }
+            h3 { font-size: 1rem !important; }
             .sportsbook-table { overflow-x: auto; display: block; }
             .mobile-hide { display: none !important; }
-            .mobile-stack { flex-direction: column !important; }
+            .mobile-stack { flex-direction: column !important; gap: 8px !important; }
             .mobile-full { width: 100% !important; }
             .mobile-text-sm { font-size: 0.875rem !important; }
             .mobile-compact { padding: 8px !important; margin: 4px 0 !important; }
-            /* Touch-friendly buttons */
-            button { min-height: 44px; min-width: 44px; }
-            /* Reduce grid columns on mobile */
-            .grid-cols-2, .grid-cols-3, .grid-cols-4 { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
-            .md\:grid-cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+            /* Touch-friendly buttons (Apple HIG 44x44 minimum) */
+            button { min-height: 48px; min-width: 48px; padding: 12px 16px; font-size: 0.9375rem; }
+            .sport-btn { padding: 16px 12px !important; }
+            /* Better grid layouts on mobile */
+            .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
+            .grid-cols-3, .grid-cols-4, .grid-cols-5 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
+            .md\:grid-cols-3, .md\:grid-cols-4 { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
+            /* Improved stats cards */
+            .stat-card { padding: 12px !important; }
+            .text-2xl { font-size: 1.5rem !important; }
+            .text-xl { font-size: 1.25rem !important; }
+            .text-lg { font-size: 1.125rem !important; }
+            /* Better spacing */
+            .space-y-6 > * + * { margin-top: 12px !important; }
+            .space-y-4 > * + * { margin-top: 8px !important; }
+            .space-y-3 > * + * { margin-top: 6px !important; }
+            /* Prediction cards on mobile */
+            .prediction-card { padding: 12px !important; margin-bottom: 8px !important; }
+            /* Better form inputs */
+            input[type="range"] { height: 36px; }
+            select { min-height: 44px; font-size: 16px; }
         }
-        /* Tablet Optimization */
+        /* Tablet Optimization (Enhanced) */
         @media (min-width: 641px) and (max-width: 1024px) {
+            body { padding: 16px !important; }
+            .glass-card { padding: 20px !important; }
             .tablet-compact { padding: 16px !important; }
-            .grid-cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+            .grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+            .grid-cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 12px !important; }
+            .grid-cols-5 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+            h1 { font-size: 2rem !important; }
+            h2 { font-size: 1.5rem !important; }
+            button { min-height: 48px; padding: 12px 20px; }
+            .sport-btn { padding: 20px 16px !important; }
+            /* Better two-column layout */
+            .tablet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
         }
-        /* Desktop Enhancements */
+        /* Desktop Enhancements (Enhanced) */
         @media (min-width: 1025px) {
-            .desktop-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; }
-            .glass-card:hover { transform: translateY(-4px); }
+            body { padding: 32px !important; }
+            .max-w-7xl { padding: 0 16px; }
+            .glass-card { padding: 24px !important; }
+            .desktop-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
+            .desktop-three-col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+            .glass-card:hover { 
+                transform: translateY(-4px); 
+                box-shadow: 0 20px 60px 0 rgba(31, 38, 135, 0.5);
+            }
+            /* Better button hover states */
+            button:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+            button:active { transform: translateY(0); }
+            /* Enhanced grid layouts */
+            .grid-cols-4 { gap: 16px !important; }
+            .grid-cols-5 { gap: 16px !important; }
+            /* Better typography */
+            h1 { font-size: 2.25rem !important; }
+            h2 { font-size: 1.75rem !important; }
+            /* Improved stats display */
+            .stat-card { padding: 20px !important; }
+            .text-2xl { font-size: 1.875rem !important; }
+            /* Better prediction cards */
+            .prediction-card { padding: 20px !important; }
+            /* Sidebar layout for analytics */
+            .desktop-sidebar-layout { display: grid; grid-template-columns: 1fr 350px; gap: 24px; }
+        }
+        /* Large Desktop (1440px+) */
+        @media (min-width: 1440px) {
+            .max-w-7xl { max-width: 1400px; }
+            .glass-card { padding: 32px !important; }
+            h1 { font-size: 2.5rem !important; }
+            h2 { font-size: 2rem !important; }
+            .desktop-grid { gap: 32px; }
+        }
+        /* Responsive Utilities */
+        .mobile-only { display: block; }
+        .tablet-only { display: none; }
+        .desktop-only { display: none; }
+        @media (min-width: 641px) and (max-width: 1024px) {
+            .mobile-only { display: none; }
+            .tablet-only { display: block; }
+            .desktop-only { display: none; }
+        }
+        @media (min-width: 1025px) {
+            .mobile-only { display: none; }
+            .tablet-only { display: none; }
+            .desktop-only { display: block; }
+        }
+        /* Smooth transitions for all interactive elements */
+        button, .glass-card, input, select {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        /* Better focus states for accessibility */
+        button:focus, input:focus, select:focus {
+            outline: 2px solid #667eea;
+            outline-offset: 2px;
+        }
+        /* Loading states */
+        .loading { opacity: 0.6; pointer-events: none; cursor: wait; }
+        .loading::after {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 20px; height: 20px;
+            margin: -10px 0 0 -10px;
+            border: 2px solid #667eea;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spinner 0.6s linear infinite;
+        }
+        @keyframes spinner {
+            to { transform: rotate(360deg); }
         }
         /* Print Optimization */
         @media print {
             body { background: white; }
-            .glass-card { box-shadow: none; border: 1px solid #ddd; }
-            button, .mobile-hide { display: none !important; }
+            .glass-card { box-shadow: none; border: 1px solid #ddd; page-break-inside: avoid; }
+            button, .mobile-hide, #darkModeBtn, #notifBtn { display: none !important; }
+            h1, h2 { color: black !important; }
         }
     </style>
 </head>
-<body class="p-4 md:p-8">
-    <div class="max-w-7xl mx-auto space-y-6">
+<body class="p-4 sm:p-6 md:p-8 lg:p-8">
+    <div class="max-w-7xl mx-auto space-y-4 md:space-y-6">
         
         <!-- Header -->
-        <div class="glass-card p-6">
+        <div class="glass-card p-4 md:p-6">
             <div class="flex flex-col md:flex-row items-center justify-between gap-4">
-                <div class="text-center md:text-left">
-                    <h1 class="text-2xl md:text-3xl font-bold text-gray-900">🤖 Self-Learning AI Betting System</h1>
-                    <p class="text-sm md:text-base text-gray-600 mt-1">Advanced machine learning for profitable betting <span class="text-xs text-purple-600 font-mono">v4.0 COMPLETE</span></p>
-                    <p class="text-xs text-gray-500 mt-1 hidden md:block">🧠 Bayesian · 📊 Kelly · 📈 Ensemble · ⚡ Time-Decay · 🎯 Regression · 💎 Monte Carlo</p>
+                <div class="text-center md:text-left flex-1">
+                    <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">🤖 Self-Learning AI Betting System</h1>
+                    <p class="text-xs sm:text-sm md:text-base text-gray-600 mt-1 leading-relaxed">Advanced machine learning for profitable betting <span class="text-xs text-purple-600 font-mono font-bold">v4.0 COMPLETE</span></p>
+                    <p class="text-xs text-gray-500 mt-2 hidden sm:block">🧠 Bayesian · 📊 Kelly · 📈 Ensemble · ⚡ Time-Decay · 🎯 Regression · 💎 Monte Carlo</p>
                 </div>
-                <div class="text-center md:text-right">
-                    <div class="text-sm text-gray-500">AI Status</div>
-                    <div class="text-lg font-bold text-green-600">● Learning</div>
-                    <div class="text-xs text-gray-500 mt-1">API: <span id="apiUsage">0/500</span></div>
-                    <div class="text-xs text-gray-400 mt-1">Storage: <span id="storageUsage">0%</span></div>
-                    <button onclick="toggleDarkMode()" class="mt-2 text-xs md:text-sm px-3 py-2 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors" id="darkModeBtn">🌙 Dark</button>
+                <div class="text-center md:text-right bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900 dark:to-blue-900 p-4 rounded-lg min-w-[180px]">
+                    <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">AI Status</div>
+                    <div class="text-xl font-bold text-green-600 dark:text-green-400 my-1">● Learning</div>
+                    <div class="text-xs text-gray-600 dark:text-gray-300 mt-2 space-y-1">
+                        <div><strong>API:</strong> <span id="apiUsage">0/500</span></div>
+                        <div><strong>Storage:</strong> <span id="storageUsage">0%</span></div>
+                    </div>
+                    <button onclick="toggleDarkMode()" class="mt-3 text-xs md:text-sm px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-all w-full font-semibold" id="darkModeBtn">🌙 Dark Mode</button>
                 </div>
             </div>
         </div>
@@ -192,71 +294,71 @@
         </div>
 
         <!-- AI Stats Dashboard -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div class="glass-card p-4 slide-in">
-                <div class="text-sm text-gray-500 flex justify-between items-center">
-                    <span>Total Bets Analyzed</span>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+            <div class="glass-card p-4 slide-in hover:shadow-xl">
+                <div class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 flex justify-between items-center mb-2">
+                    <span class="font-medium">Total Bets Analyzed</span>
                     <span class="text-xs" id="trendIndicator"></span>
                 </div>
-                <div class="text-2xl font-bold text-gray-900" id="totalBets">0</div>
-                <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
-                    <div class="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full progress-bar" id="totalBetsProgress" style="width: 0%"></div>
+                <div class="text-3xl md:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-gray-100" id="totalBets">0</div>
+                <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mt-3">
+                    <div class="bg-gradient-to-r from-blue-500 to-purple-600 h-2.5 rounded-full progress-bar" id="totalBetsProgress" style="width: 0%"></div>
                 </div>
-                <div class="text-xs text-gray-400 mt-1">Lifetime learning</div>
+                <div class="text-xs text-gray-400 dark:text-gray-500 mt-2">Lifetime learning</div>
             </div>
-            <div class="glass-card p-4 slide-in">
-                <div class="text-sm text-gray-500 flex justify-between items-center">
-                    <span>Win Rate</span>
+            <div class="glass-card p-4 slide-in hover:shadow-xl">
+                <div class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 flex justify-between items-center mb-2">
+                    <span class="font-medium">Win Rate</span>
                     <span class="text-xs font-bold" id="winRateTrend"></span>
                 </div>
-                <div class="text-2xl font-bold text-green-600" id="winRate">0%</div>
-                <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
-                    <div class="bg-gradient-to-r from-green-400 to-emerald-600 h-2 rounded-full progress-bar" id="winRateProgress" style="width: 0%"></div>
+                <div class="text-3xl md:text-2xl lg:text-3xl font-bold text-green-600 dark:text-green-400" id="winRate">0%</div>
+                <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mt-3">
+                    <div class="bg-gradient-to-r from-green-400 to-emerald-600 h-2.5 rounded-full progress-bar" id="winRateProgress" style="width: 0%"></div>
                 </div>
-                <div class="text-xs mt-1" id="winRateSubtext">AI accuracy</div>
+                <div class="text-xs mt-2" id="winRateSubtext">AI accuracy</div>
             </div>
-            <div class="glass-card p-4 slide-in">
-                <div class="text-sm text-gray-500">Best Bet Type</div>
-                <div class="text-xl font-bold text-purple-600 gradient-text" id="confidence">Learning...</div>
-                <div class="text-xs text-gray-400 mt-1">Top performer</div>
+            <div class="glass-card p-4 slide-in hover:shadow-xl">
+                <div class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-2 font-medium">Best Bet Type</div>
+                <div class="text-lg sm:text-xl font-bold text-purple-600 gradient-text truncate" id="confidence">Learning...</div>
+                <div class="text-xs text-gray-400 dark:text-gray-500 mt-1">Top performer</div>
                 <div class="text-xs font-semibold mt-2" id="recentStreak"></div>
             </div>
-            <div class="glass-card p-4 slide-in">
-                <div class="text-sm text-gray-500">Learning Cycles</div>
-                <div class="text-2xl font-bold text-blue-600" id="cycles">0</div>
-                <div class="text-xs text-gray-400 mt-1">Training iterations</div>
-                <div class="text-xs font-semibold mt-2 text-purple-600" id="momentum"></div>
+            <div class="glass-card p-4 slide-in hover:shadow-xl">
+                <div class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-2 font-medium">Learning Cycles</div>
+                <div class="text-3xl md:text-2xl lg:text-3xl font-bold text-blue-600 dark:text-blue-400" id="cycles">0</div>
+                <div class="text-xs text-gray-400 dark:text-gray-500 mt-1">Training iterations</div>
+                <div class="text-xs font-semibold mt-2 text-purple-600 dark:text-purple-400" id="momentum"></div>
             </div>
         </div>
 
         <!-- Sport Selection -->
         <div class="glass-card p-4 md:p-6">
-            <h2 class="text-lg md:text-xl font-bold text-gray-900 mb-4">🏆 Select Sport</h2>
-            <div class="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3">
-                <button onclick="selectSport('americanfootball_nfl', 'NFL')" class="sport-btn p-4 border-2 border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition">
-                    <div class="text-2xl mb-2">🏈</div>
-                    <div class="font-semibold">NFL</div>
+            <h2 class="text-base sm:text-lg md:text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">🏆 Select Sport</h2>
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
+                <button onclick="selectSport('americanfootball_nfl', 'NFL')" class="sport-btn p-5 border-2 border-gray-300 dark:border-gray-600 rounded-xl hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900 transition-all shadow-sm hover:shadow-md active:scale-95">
+                    <div class="text-3xl md:text-2xl mb-2">🏈</div>
+                    <div class="font-semibold text-sm md:text-base">NFL</div>
                 </button>
-                <button onclick="selectSport('basketball_nba', 'NBA')" class="sport-btn p-4 border-2 border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition">
-                    <div class="text-2xl mb-2">🏀</div>
-                    <div class="font-semibold">NBA</div>
+                <button onclick="selectSport('basketball_nba', 'NBA')" class="sport-btn p-5 border-2 border-gray-300 dark:border-gray-600 rounded-xl hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900 transition-all shadow-sm hover:shadow-md active:scale-95">
+                    <div class="text-3xl md:text-2xl mb-2">🏀</div>
+                    <div class="font-semibold text-sm md:text-base">NBA</div>
                 </button>
-                <button onclick="selectSport('icehockey_nhl', 'NHL')" class="sport-btn p-4 border-2 border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition">
-                    <div class="text-2xl mb-2">🏒</div>
-                    <div class="font-semibold">NHL</div>
+                <button onclick="selectSport('icehockey_nhl', 'NHL')" class="sport-btn p-5 border-2 border-gray-300 dark:border-gray-600 rounded-xl hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900 transition-all shadow-sm hover:shadow-md active:scale-95">
+                    <div class="text-3xl md:text-2xl mb-2">🏒</div>
+                    <div class="font-semibold text-sm md:text-base">NHL</div>
                 </button>
-                <button onclick="selectSport('baseball_mlb', 'MLB')" class="sport-btn p-4 border-2 border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition">
-                    <div class="text-2xl mb-2">⚾</div>
-                    <div class="font-semibold">MLB</div>
+                <button onclick="selectSport('baseball_mlb', 'MLB')" class="sport-btn p-5 border-2 border-gray-300 dark:border-gray-600 rounded-xl hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900 transition-all shadow-sm hover:shadow-md active:scale-95">
+                    <div class="text-3xl md:text-2xl mb-2">⚾</div>
+                    <div class="font-semibold text-sm md:text-base">MLB</div>
                 </button>
-                <button onclick="selectSport('americanfootball_ncaaf', 'NCAAF')" class="sport-btn p-4 border-2 border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition">
-                    <div class="text-2xl mb-2">🎓</div>
-                    <div class="font-semibold">NCAAF</div>
+                <button onclick="selectSport('americanfootball_ncaaf', 'NCAAF')" class="sport-btn p-5 border-2 border-gray-300 dark:border-gray-600 rounded-xl hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900 transition-all shadow-sm hover:shadow-md active:scale-95">
+                    <div class="text-3xl md:text-2xl mb-2">🎓</div>
+                    <div class="font-semibold text-sm md:text-base">NCAAF</div>
                 </button>
             </div>
-            <div class="mt-4 text-center">
-                <span class="text-gray-600">Selected: </span>
-                <span class="font-bold text-purple-600" id="selectedSport">None</span>
+            <div class="mt-4 p-3 bg-purple-50 dark:bg-purple-900 rounded-lg text-center">
+                <span class="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Selected: </span>
+                <span class="font-bold text-base sm:text-lg text-purple-600 dark:text-purple-400" id="selectedSport">None</span>
             </div>
         </div>
 
@@ -282,23 +384,23 @@
 
         <!-- AI Control Panel -->
         <div class="glass-card p-4 md:p-6">
-            <h2 class="text-lg md:text-xl font-bold text-gray-900 mb-4">🧠 AI Control Panel</h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
-                <button id="analyzeBtn" onclick="analyzeGames()" class="bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold py-3 md:py-4 px-4 md:px-6 rounded-lg hover:from-purple-700 hover:to-blue-700 transition shadow-lg disabled:opacity-50 min-h-[60px]">
-                    <div class="text-base md:text-lg">🔍 Analyze Games</div>
+            <h2 class="text-base sm:text-lg md:text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">🧠 AI Control Panel</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
+                <button id="analyzeBtn" onclick="analyzeGames()" class="bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold py-4 md:py-5 px-4 md:px-6 rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 min-h-[72px] md:min-h-[80px]">
+                    <div class="text-base md:text-lg mb-1">🔍 Analyze Games</div>
                     <div class="text-xs opacity-90">Find value bets with AI</div>
                 </button>
-                <button id="settleBtn" onclick="settleBets()" class="bg-gradient-to-r from-green-600 to-teal-600 text-white font-bold py-3 md:py-4 px-4 md:px-6 rounded-lg hover:from-green-700 hover:to-teal-700 transition shadow-lg disabled:opacity-50 min-h-[60px]">
-                    <div class="text-base md:text-lg">✅ Settle Results</div>
+                <button id="settleBtn" onclick="settleBets()" class="bg-gradient-to-r from-green-600 to-teal-600 text-white font-bold py-4 md:py-5 px-4 md:px-6 rounded-xl hover:from-green-700 hover:to-teal-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 min-h-[72px] md:min-h-[80px]">
+                    <div class="text-base md:text-lg mb-1">✅ Settle Results</div>
                     <div class="text-xs opacity-90">Get real game outcomes</div>
                 </button>
-                <button id="learnBtn" onclick="runLearningCycle()" class="bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold py-3 md:py-4 px-4 md:px-6 rounded-lg hover:from-orange-700 hover:to-red-700 transition shadow-lg disabled:opacity-50 min-h-[60px]">
-                    <div class="text-base md:text-lg">🎓 Learn & Improve</div>
+                <button id="learnBtn" onclick="runLearningCycle()" class="bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold py-4 md:py-5 px-4 md:px-6 rounded-xl hover:from-orange-700 hover:to-red-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 min-h-[72px] md:min-h-[80px]">
+                    <div class="text-base md:text-lg mb-1">🎓 Learn & Improve</div>
                     <div class="text-xs opacity-90">AI self-improvement</div>
                 </button>
             </div>
-            <div class="mt-4 text-center">
-                <button onclick="clearAllBets()" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded text-sm">
+            <div class="mt-4 flex justify-center">
+                <button onclick="clearAllBets()" class="bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 text-white font-semibold py-2.5 px-6 rounded-lg text-sm md:text-base transition-all shadow hover:shadow-md active:scale-95">
                     🗑️ Clear All Bets
                 </button>
             </div>
