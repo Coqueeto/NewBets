@@ -5583,6 +5583,49 @@
         // Start daily scheduled tasks (6am analysis, 11pm settlement)
         startDailySchedule();
         
+        // Register Service Worker for background sync and offline support
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/NewBets/service-worker.js')
+                .then((registration) => {
+                    console.log('✅ Service Worker registered successfully');
+                    
+                    // Request periodic background sync permission (if supported)
+                    if ('periodicSync' in registration) {
+                        registration.periodicSync.register('daily-betting-tasks', {
+                            minInterval: 6 * 60 * 60 * 1000 // Every 6 hours
+                        }).then(() => {
+                            console.log('✅ Periodic background sync registered');
+                        }).catch((err) => {
+                            console.log('⚠️ Periodic sync not available:', err);
+                        });
+                    }
+                    
+                    // Listen for messages from service worker
+                    navigator.serviceWorker.addEventListener('message', (event) => {
+                        if (event.data.type === 'RUN_ANALYSIS') {
+                            console.log('🌅 Service Worker triggered: Running analysis...');
+                            analyzeGames();
+                        } else if (event.data.type === 'RUN_SETTLEMENT') {
+                            console.log('🌙 Service Worker triggered: Running settlement...');
+                            settleBets(true);
+                        }
+                    });
+                })
+                .catch((error) => {
+                    console.log('⚠️ Service Worker registration failed:', error);
+                });
+        }
+        
+        // Check for auto-trigger from URL params
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('auto') === 'analyze') {
+            console.log('🌅 Auto-triggered: Running analysis...');
+            setTimeout(() => analyzeGames(), 2000);
+        } else if (urlParams.get('auto') === 'settle') {
+            console.log('🌙 Auto-triggered: Running settlement...');
+            setTimeout(() => settleBets(true), 2000);
+        }
+        
         // Display version info
         console.log('🚀 AI Betting System v5.2 ULTRA - Build: 2025-12-16 00:30 UTC');
         console.log('═══════════════════════════════════════════════════════════════════════════════');

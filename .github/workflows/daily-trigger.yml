@@ -1,0 +1,29 @@
+name: Daily AI Betting Tasks
+
+on:
+  schedule:
+    - cron: '0 12 * * *'  # 6:00 AM CT = 12:00 PM UTC
+    - cron: '0 5 * * *'   # 11:00 PM CT = 5:00 AM UTC next day
+  workflow_dispatch:
+
+jobs:
+  trigger-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger GitHub Pages deployment
+        run: |
+          echo "Triggering scheduled task at $(date)"
+          # This ensures GitHub Pages is up to date
+          curl -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }}/pages/builds
+      
+      - name: Notify scheduled task
+        run: |
+          HOUR=$(date -u +%H)
+          if [ "$HOUR" = "12" ]; then
+            echo "🌅 6:00 AM CT - Daily analysis trigger"
+          else
+            echo "🌙 11:00 PM CT - Daily settlement trigger"
+          fi
