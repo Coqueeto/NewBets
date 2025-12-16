@@ -1,7 +1,7 @@
 // Service Worker for AI Betting System
 // Enables background sync and scheduled tasks
 
-const CACHE_NAME = 'ai-betting-v5.2.1';
+const CACHE_NAME = 'ai-betting-v5.2.2';
 const urlsToCache = [
   '/NewBets/ai-betting-system.html',
   '/NewBets/'
@@ -33,28 +33,39 @@ self.addEventListener('activate', (event) => {
           }
         })
       );
-    })
+    }).then(() => self.clients.claim())
   );
-  return self.clients.claim();
+  self.skipWaiting();
 });
 
 // Fetch with cache fallback
 self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        // Clone the response
-        const responseToCache = response.clone();
-        caches.open(CACHE_NAME)
-          .then((cache) => {
+  if (event.request.mode === 'navigate') {
+    // Always fetch latest HTML for navigation requests
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseToCache);
           });
-        return response;
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+  } else {
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        return cachedResponse || fetch(event.request).then((response) => {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+          return response;
+        });
       })
-      .catch(() => {
-        return caches.match(event.request);
-      })
-  );
+    );
+  }
 });
 
 // Background Sync for scheduled tasks

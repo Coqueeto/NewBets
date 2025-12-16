@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Self-Learning AI Betting System v5.2.2 ULTRA - 24/7 Automatic Scheduling</title>
+    <title>Self-Learning AI Betting System v5.3 ULTRA - 24/7 Automatic Scheduling</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
@@ -404,7 +404,7 @@
                     <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">
                         <span class="inline-block float-animation">🤖</span> Self-Learning AI Betting System
                     </h1>
-                    <p class="text-xs sm:text-sm md:text-base text-gray-600 mt-1 leading-relaxed">24/7 Auto-Scheduling + 5 AI Improvements <span class="text-xs text-purple-600 font-mono font-bold">v5.2.2 ULTRA</span></p>
+                    <p class="text-xs sm:text-sm md:text-base text-gray-600 mt-1 leading-relaxed">24/7 Auto-Scheduling + 5 AI Improvements <span class="text-xs text-purple-600 font-mono font-bold">v5.3 ULTRA</span></p>
                     <p class="text-xs text-gray-500 mt-2 hidden sm:block">🧠 Loss Avoidance · ☁️ Weather Learning · 🎯 API-Sports Multi-Sport AI · 📊 A/B Testing · 🏈🏀⚾🏒⚽ 5 Sports</p>
                 </div>
                 <div class="text-center md:text-right bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900 dark:to-blue-900 p-4 rounded-lg min-w-[180px]">
@@ -568,6 +568,11 @@
                     <div class="relative text-base md:text-lg mb-1">✅ Settle Results</div>
                     <div class="relative text-xs opacity-90">Get real game outcomes</div>
                 </button>
+                <button id="forceSettleBtn" onclick="settleBets(true)" class="bg-gradient-to-br from-red-600 via-orange-600 to-yellow-500 text-white font-bold py-4 md:py-5 px-4 md:px-6 rounded-xl hover:from-red-700 hover:via-orange-700 hover:to-yellow-600 transition-all shadow-lg hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 min-h-[72px] md:min-h-[80px] relative overflow-hidden group ml-2">
+                    <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000"></div>
+                    <div class="relative text-base md:text-lg mb-1">🛠️ Force Settle</div>
+                    <div class="relative text-xs opacity-90">Force update all results</div>
+                </button>
                 <button id="learnBtn" onclick="runLearningCycle()" class="bg-gradient-to-br from-orange-600 via-red-600 to-pink-600 text-white font-bold py-4 md:py-5 px-4 md:px-6 rounded-xl hover:from-orange-700 hover:via-red-700 hover:to-pink-700 transition-all shadow-lg hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 min-h-[72px] md:min-h-[80px] relative overflow-hidden group">
                     <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000"></div>
                     <div class="text-base md:text-lg mb-1">🎓 Extra Learning</div>
@@ -640,10 +645,80 @@
                 <button onclick="createModelSnapshot()" class="px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all shadow hover:shadow-md text-xs sm:text-sm font-semibold active:scale-95" id="snapshotBtn">💾 Save Snapshot</button>
             </div>
             <div id="insights" class="space-y-4">
-                <div class="text-center text-gray-400 dark:text-gray-500 py-8">
-                    <div class="text-base sm:text-lg mb-2">🤖 AI insights will appear after learning cycles</div>
-                    <div class="text-xs sm:text-sm">AI learns automatically after every settlement at 11pm CT</div>
-                </div>
+                <div id="insightsContent"></div>
+                <script>
+                function renderInsights() {
+                    const insightsDiv = document.getElementById('insightsContent');
+                    if (!window.ai || !ai.model) {
+                        insightsDiv.innerHTML = '<div class="text-center text-gray-400 dark:text-gray-500 py-8">🤖 AI insights will appear after learning cycles</div>';
+                        return;
+                    }
+                    const m = ai.model;
+                    let html = '';
+                    html += `<div class='mb-2'><b>Learning Cycles:</b> ${m.learningCycles || 0}</div>`;
+                    html += `<div class='mb-2'><b>Total Bets:</b> ${m.totalBets || 0} | <b>Wins:</b> ${m.wins || 0} | <b>Losses:</b> ${m.losses || 0} | <b>Win Rate:</b> ${m.totalBets ? ((m.wins/m.totalBets)*100).toFixed(1) : 0}%</div>`;
+                    if (m.recentTrend) {
+                        html += `<div class='mb-2'><b>Current Streak:</b> ${m.recentTrend.currentStreak || 0} (${m.recentTrend.streakType || ''})</div>`;
+                    }
+                    // Top Money Maker Teams
+                    if (m.moneyMakerPatterns && m.moneyMakerPatterns.teams) {
+                        const mmTeams = Object.entries(m.moneyMakerPatterns.teams)
+                            .filter(([team, data]) => data.total >= 5 && data.winRate > 0.6)
+                            .sort((a, b) => b[1].winRate - a[1].winRate)
+                            .slice(0, 5);
+                        if (mmTeams.length) {
+                            html += `<div class='mb-2'><b>Top Money Maker Teams:</b><ul class='ml-4 list-disc'>`;
+                            mmTeams.forEach(([team, data]) => {
+                                html += `<li>${team}: ${data.winRate ? (data.winRate*100).toFixed(1) : 0}% WR (${data.total} bets)</li>`;
+                            });
+                            html += '</ul></div>';
+                        }
+                    }
+                    // Best Bet Types
+                    if (m.betTypePerformance) {
+                        const bestTypes = Object.entries(m.betTypePerformance)
+                            .filter(([type, data]) => data.total >= 5 && data.wins/data.total > 0.6)
+                            .sort((a, b) => (b[1].wins/b[1].total) - (a[1].wins/a[1].total))
+                            .slice(0, 3);
+                        if (bestTypes.length) {
+                            html += `<div class='mb-2'><b>Best Bet Types:</b><ul class='ml-4 list-disc'>`;
+                            bestTypes.forEach(([type, data]) => {
+                                html += `<li>${type}: ${((data.wins/data.total)*100).toFixed(1)}% WR (${data.total} bets)</li>`;
+                            });
+                            html += '</ul></div>';
+                        }
+                    }
+                    // Patterns to Avoid
+                    if (m.losingPatterns && m.losingPatterns.teams) {
+                        const avoidTeams = Object.entries(m.losingPatterns.teams)
+                            .filter(([team, data]) => data.total >= 5 && data.losses/data.total > 0.6)
+                            .sort((a, b) => (b[1].losses/b[1].total) - (a[1].losses/a[1].total))
+                            .slice(0, 3);
+                        if (avoidTeams.length) {
+                            html += `<div class='mb-2'><b>Teams to Avoid:</b><ul class='ml-4 list-disc'>`;
+                            avoidTeams.forEach(([team, data]) => {
+                                html += `<li>${team}: ${((data.losses/data.total)*100).toFixed(1)}% Loss Rate (${data.total} bets)</li>`;
+                            });
+                            html += '</ul></div>';
+                        }
+                    }
+                    // CLV Insights
+                    if (m.advancedMetrics && m.advancedMetrics.clvTracking) {
+                        const clv = m.advancedMetrics.clvTracking;
+                        if (clv.history && clv.history.length) {
+                            const avgCLV = (clv.history.reduce((sum, h) => sum + h.clv, 0) / clv.history.length).toFixed(2);
+                            html += `<div class='mb-2'><b>Avg CLV (last 50):</b> ${avgCLV}%</div>`;
+                        }
+                    }
+                    insightsDiv.innerHTML = html;
+                }
+                // Render on load and after learning
+                setTimeout(renderInsights, 1000);
+                if (window.ai) {
+                    const oldLearn = ai.runLearningCycle;
+                    ai.runLearningCycle = function() { const r = oldLearn.apply(this, arguments); setTimeout(renderInsights, 1000); return r; };
+                }
+                </script>
             </div>
         </div>
 
@@ -5118,8 +5193,12 @@
         }
         
         function runLearningCycle() {
+            // Only allow learning if there are new settled but not yet learned results
+            if (!predictions.some(p => p.settled && !p.learned)) {
+                showNotification('No new results to learn from.', 'warning');
+                return;
+            }
             const insights = ai.learn();
-            
             const container = document.getElementById('insights');
             container.innerHTML = `
                 <div class="bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200 rounded-lg p-6">
@@ -5135,11 +5214,10 @@
                     </div>
                 </div>
             `;
-            
             updateStats();
             updateBankrollUI();
             
-            alert('🧠 Manual learning cycle complete!\n\n💡 Remember: AI learns automatically after every settlement.\nYou don\'t need to click this button unless you want extra training.');
+            // No alert needed; notification and panel update are sufficient
         }
         
         function updateStats() {
@@ -5438,21 +5516,21 @@
         function scheduleNextAutoSettle() {
             // Clear existing timeout
             if (autoSettleTimeout) clearTimeout(autoSettleTimeout);
-            
-            const nextCheckTime = getNextSettlementTime();
-            if (!nextCheckTime) {
-                // No games finishing soon, check again in 2 hours
-                autoSettleTimeout = setTimeout(autoSettleCheck, 2 * 60 * 60000);
-                console.log('⏰ No games finishing soon, will check again in 2 hours');
-                return;
-            }
-            
+            // Always check at 11pm CT
             const now = new Date();
-            const msUntilCheck = Math.max(60000, nextCheckTime - now); // At least 1 minute
-            autoSettleTimeout = setTimeout(autoSettleCheck, msUntilCheck);
-            
-            const minutesUntil = Math.ceil(msUntilCheck / 60000);
-            console.log(`⏰ Auto-settle scheduled for ${minutesUntil} minutes from now`);
+            const ctNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+            const msTo11pm = (() => {
+                const target = new Date(ctNow);
+                target.setHours(23, 0, 0, 0);
+                if (ctNow > target) target.setDate(target.getDate() + 1);
+                return target - ctNow;
+            })();
+            autoSettleTimeout = setTimeout(() => {
+                settleBets(true); // Force settle at 11pm CT
+                scheduleNextAutoSettle();
+            }, msTo11pm);
+            const minutesUntil = Math.ceil(msTo11pm / 60000);
+            console.log(`⏰ Auto-settle scheduled for ${minutesUntil} minutes from now (11pm CT)`);
         }
         
         // Live Odds Monitoring (API-efficient - only checks active bets within 2 hours of game start)
@@ -5627,8 +5705,8 @@
         }
         
         // Display version info
-        console.log('🚀 AI Betting System v5.2.2 ULTRA - Build: 2025-12-16 01:00 UTC');
-        console.log('🆕 NEW in v5.2.2: 24/7 Automatic Scheduling with Service Worker + GitHub Actions');
+        console.log('🚀 AI Betting System v5.3 ULTRA - Build: 2025-12-16 01:00 UTC');
+        console.log('🆕 NEW in v5.3: Always-updating cache, improved mobile/desktop sync, and update indicator.');
         console.log('═══════════════════════════════════════════════════════════════════════════════');
         console.log('🎯 5 CRITICAL AI IMPROVEMENTS FOR 95% WIN RATE:');
         console.log('   1️⃣ Stricter Rejection Rules - Auto-reject bets with 2+ losing patterns');
@@ -5647,7 +5725,7 @@
     
     <!-- Version Footer -->
     <div style="text-align: center; padding: 20px; color: rgba(255,255,255,0.7); font-size: 12px;">
-        v5.2.2 ULTRA • Build: Dec 16, 2025 01:00 UTC • 24/7 Auto-Scheduling • Service Worker • GitHub Actions • 5 AI Improvements
+        v5.3 ULTRA • Build: Dec 16, 2025 01:00 UTC • 24/7 Auto-Scheduling • Service Worker • GitHub Actions • 5 AI Improvements
     </div>
 </body>
 </html>
