@@ -675,10 +675,27 @@
                             }
                             return;
                         }
-                        // Group by sport for efficient API calls
-                        const sportsToCheck = [...new Set(unsettled.map(p => p.sportKey || p.sport))];
+                        // Map human-readable sport names to Odds API sport keys
+                        const oddsSportMap = {
+                            'NFL': 'americanfootball_nfl',
+                            'NBA': 'basketball_nba',
+                            'NHL': 'icehockey_nhl',
+                            'MLB': 'baseball_mlb',
+                            'NCAAF': 'americanfootball_ncaaf',
+                            'EPL': 'soccer_epl',
+                            'MLS': 'soccer_usa_mls',
+                            'UCL': 'soccer_uefa_champs_league'
+                        };
+                        // Group by Odds API sport key for efficient API calls
+                        const sportsToCheck = [...new Set(unsettled.map(p => {
+                            const name = p.sport || p.sportKey || '';
+                            return oddsSportMap[name] || name;
+                        }))];
                         for (const sportKey of sportsToCheck) {
-                            const sportPreds = unsettled.filter(p => (p.sportKey || p.sport) === sportKey);
+                            const sportPreds = unsettled.filter(p => {
+                                const name = p.sport || p.sportKey || '';
+                                return (oddsSportMap[name] || name) === sportKey;
+                            });
                             if (sportPreds.length === 0) continue;
                             // Try to get results for this sport
                             const activeKey = getActiveApiKey();
@@ -1745,13 +1762,12 @@
                             this.model.betTypePerformance[p.type] = this.model.betTypePerformance[p.type] || { wins: 0, total: 0 };
                             this.model.betTypePerformance[p.type].wins += 1;
                         } else {
-                            this.model.losses = (this.model.losses || 0) + 1;
-                        }
-                        this.model.betTypePerformance[p.type] = this.model.betTypePerformance[p.type] || { wins: 0, total: 0 };
-                        this.model.betTypePerformance[p.type].total += 1;
-                    }
-
-                    // Update per-team performance
+                                if (pick) {
+                                pick.sport = sport.name;
+                                pick.sportEmoji = sport.emoji;
+                                newPredictions.push(pick);
+                                added++;
+                            } else {
                     const team = p.team || 'unknown';
                     const opp = p.opponent || 'unknown';
                     this.model.teamPerformance[team] = this.model.teamPerformance[team] || { wins: 0, losses: 0, pushes: 0, games: 0 };
@@ -2149,7 +2165,6 @@
                             console.log(`[${sport.name}] Game:`, game.id || game, 'Pick:', pick);
                             if (pick) {
                                 pick.sport = sport.name;
-                                pick.sportKey = sport.key;
                                 pick.sportEmoji = sport.emoji;
                                 newPredictions.push(pick);
                             }
@@ -2278,7 +2293,6 @@ async function analyzeGamesForLearning() {
                                 if (existingMLTeams.has(pick.team) || existingMLTeams.has(pick.opponent)) continue;
                             }
                             pick.sport = sport.name;
-                            pick.sportKey = sport.key;
                             pick.sportEmoji = sport.emoji;
                             newPredictions.push(pick);
                             showNotification('💰 ELITE MONEY MAKER BET ADDED! ' + pick.game, 'success');
@@ -2505,7 +2519,6 @@ async function analyzeGamesForLearning() {
                             const pick = await ai.analyzeGame(game);
                                 if (pick) {
                                 pick.sport = sport.name;
-                                pick.sportKey = sport.key;
                                 pick.sportEmoji = sport.emoji;
                                 pick.reasoning = pick.reasoning || (pick.aiReasoning ? pick.aiReasoning : 'No detailed reasoning provided.');
                                 newPredictions.push(pick);
@@ -2874,10 +2887,27 @@ async function analyzeGamesForLearning() {
                     }
                     return;
                 }
-                // Group by sport for efficient API calls
-                const sportsToCheck = [...new Set(unsettled.map(p => p.sportKey || p.sport))];
+                // Map human-readable sport names to Odds API sport keys
+                const oddsSportMap = {
+                    'NFL': 'americanfootball_nfl',
+                    'NBA': 'basketball_nba',
+                    'NHL': 'icehockey_nhl',
+                    'MLB': 'baseball_mlb',
+                    'NCAAF': 'americanfootball_ncaaf',
+                    'EPL': 'soccer_epl',
+                    'MLS': 'soccer_usa_mls',
+                    'UCL': 'soccer_uefa_champs_league'
+                };
+                // Group by Odds API sport key for efficient API calls
+                const sportsToCheck = [...new Set(unsettled.map(p => {
+                    const name = p.sport || p.sportKey || '';
+                    return oddsSportMap[name] || name;
+                }))];
                 for (const sportKey of sportsToCheck) {
-                    const sportPreds = unsettled.filter(p => (p.sportKey || p.sport) === sportKey);
+                    const sportPreds = unsettled.filter(p => {
+                        const name = p.sport || p.sportKey || '';
+                        return (oddsSportMap[name] || name) === sportKey;
+                    });
                     if (sportPreds.length === 0) continue;
                     // Try to get results for this sport
                     const activeKey = getActiveApiKey();
