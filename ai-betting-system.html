@@ -2149,6 +2149,7 @@
                             console.log(`[${sport.name}] Game:`, game.id || game, 'Pick:', pick);
                             if (pick) {
                                 pick.sport = sport.name;
+                                pick.sportKey = sport.key;
                                 pick.sportEmoji = sport.emoji;
                                 newPredictions.push(pick);
                             }
@@ -2277,6 +2278,7 @@ async function analyzeGamesForLearning() {
                                 if (existingMLTeams.has(pick.team) || existingMLTeams.has(pick.opponent)) continue;
                             }
                             pick.sport = sport.name;
+                            pick.sportKey = sport.key;
                             pick.sportEmoji = sport.emoji;
                             newPredictions.push(pick);
                             showNotification('💰 ELITE MONEY MAKER BET ADDED! ' + pick.game, 'success');
@@ -2501,8 +2503,9 @@ async function analyzeGamesForLearning() {
                                 continue;
                             }
                             const pick = await ai.analyzeGame(game);
-                            if (pick) {
+                                if (pick) {
                                 pick.sport = sport.name;
+                                pick.sportKey = sport.key;
                                 pick.sportEmoji = sport.emoji;
                                 pick.reasoning = pick.reasoning || (pick.aiReasoning ? pick.aiReasoning : 'No detailed reasoning provided.');
                                 newPredictions.push(pick);
