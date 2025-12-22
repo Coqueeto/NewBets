@@ -2,8 +2,11 @@ name: Daily AI Betting Tasks
 
 on:
   schedule:
-    - cron: '0 12 * * *'  # 6:00 AM CT = 12:00 PM UTC
-    - cron: '0 5 * * *'   # 11:00 PM CT = 5:00 AM UTC next day
+    # Run once per day for each local-time event (will shift during DST):
+    # - 6:00 AM Central Time  -> UTC 12:00 (will shift to UTC 11:00 during DST)
+    # - 11:00 PM Central Time -> UTC 05:00 (will shift to UTC 04:00 during DST)
+    - cron: '0 12 * * *'  # 6:00 AM CT (single UTC mapping; shifts on DST)
+    - cron: '0 5 * * *'   # 11:00 PM CT (single UTC mapping; shifts on DST)
   workflow_dispatch:
 
 jobs:
