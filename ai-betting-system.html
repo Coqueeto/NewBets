@@ -60,64 +60,7 @@
             height: 64px;
             border-radius: 18px;
             display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 34px;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
-            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
-            color: #2b1b3a;
-        }
-        .emoji-badge.positive { background: linear-gradient(135deg,#6ee7b7,#34d399); }
-        .emoji-badge.negative { background: linear-gradient(135deg,#fda4af,#fb7185); }
-        .emoji-badge.neutral { background: linear-gradient(135deg,#c7d2fe,#a78bfa); }
-        /* compact header layout for small screens */
-        .card-title { display: block; }
-        .card-emoji { width:56px; height:56px; font-size:28px; }
-        .card-diamond { position: absolute; right: 14px; top: 14px; }
-        .card-title.gradient-text { background: linear-gradient(90deg,#7c3aed,#06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .card-top { display:flex; align-items:center; gap:12px; }
-        .card-title { font-size: 1.05rem; font-weight: 800; letter-spacing: -0.2px; }
-        .card-sub { font-size: 0.85rem; color: #374151; }
-        .card-meta { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-        .chip { padding:6px 10px; border-radius:999px; font-size:12px; background: rgba(255,255,255,0.7); color:#111827; box-shadow: 0 6px 18px rgba(2,6,23,0.06); }
-        .diamond-badge { background: linear-gradient(90deg,#fef3c7,#fef08a); color:#92400e; font-weight:700; }
-        .money-badge { background: linear-gradient(90deg,#fde68a,#fbbf24); color:#92400e; font-weight:800; }
-        * {
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
-        /* Highlight Draw picks */
-        .prediction-card.draw-pick {
-            border: 2px dashed #f59e0b;
-            background: linear-gradient(180deg, #fffbeb, #fff7ed);
-        }
-        button {
-            border-radius: 12px;
-            min-height: 44px;
-            padding: 10px 14px;
-            box-shadow: 0 6px 18px rgba(16,24,40,0.06);
-            border: none;
-            cursor: pointer;
-            font-weight: 600;
-            color: white;
-            background: linear-gradient(90deg,#6d28d9,#06b6d4); /* default vibrant gradient */
-            transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease;
-        }
-        button:hover { transform: translateY(-2px); }
-        button:active { transform: translateY(0); opacity: 0.95; }
-        button:focus {
-            outline: none;
-            box-shadow: var(--card-shadow), var(--focus-outline);
-        }
-
-        /* Button variants */
-        .btn { display: inline-flex; align-items: center; gap: 8px; justify-content: center; }
-        .btn-sm { padding: 8px 10px; min-height: 36px; border-radius: 10px; font-size: 0.9rem; }
-        .btn-primary { background: linear-gradient(90deg,#7c3aed,#06b6d4); color: white; }
-        .btn-success { background: linear-gradient(90deg,#10b981,#34d399); color: white; }
-        .btn-warning { background: linear-gradient(90deg,#f59e0b,#fb923c); color: white; }
-        .btn-danger { background: linear-gradient(90deg,#ef4444,#f97316); color: white; }
-        .btn-ghost { background: transparent; color: var(--brand-600); box-shadow: none; border: 1px solid rgba(99,102,241,0.12); }
+                // Quick Composer removed: manual prediction functions disabled to keep process fully automatic
         .btn-outline { background: transparent; color: #111827; border: 1px solid rgba(0,0,0,0.06); }
         /* small icon-only button */
         .icon-btn { width:44px; height:44px; padding:0; display:inline-flex; align-items:center; justify-content:center; border-radius:10px; }
@@ -428,27 +371,7 @@
                         <div><strong>Storage:</strong> <span id="storageUsage">0%</span></div>
                     </div>
 
-                    <!-- Quick Prediction Composer (Soccer: Home / Away / Draw) -->
-                    <div class="mt-3 p-3 bg-white rounded-lg shadow-sm">
-                        <div class="text-xs font-semibold text-gray-600 mb-2">Quick Composer</div>
-                        <select id="composerSport" class="w-full mb-2 p-2 rounded border border-gray-200 text-sm">
-                            <option value="soccer_epl">EPL</option>
-                            <option value="soccer_spain_la_liga">La Liga</option>
-                            <option value="soccer_germany_bundesliga">Bundesliga</option>
-                            <option value="soccer_italy_serie_a">Serie A</option>
-                            <option value="soccer_france_ligue_one">Ligue 1</option>
-                        </select>
-                        <input id="composerGame" placeholder="Game title (e.g. Fulham vs Forest)" class="w-full mb-2 p-2 rounded border border-gray-200 text-sm" />
-                        <div class="flex gap-2 mb-2">
-                            <button type="button" class="btn btn-outline btn-sm" onclick="setComposerPick('home')">Home</button>
-                            <button type="button" class="btn btn-outline btn-sm" onclick="setComposerPick('away')">Away</button>
-                            <button type="button" class="btn btn-warning btn-sm" onclick="setComposerPick('draw')">Draw</button>
-                        </div>
-                        <div class="flex gap-2">
-                            <button type="button" class="btn btn-primary" onclick="addManualPrediction()">➕ Add Prediction</button>
-                        </div>
-                        <input type="hidden" id="composerPick" value="home" />
-                    </div>
+                    <!-- Quick Composer removed: All predictions are auto-generated and auto-logged -->
 
                     <div class="mt-3 grid grid-cols-3 gap-2">
                         <button onclick="toggleDarkMode()" class="text-xs md:text-sm px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-all w-full font-semibold" id="darkModeBtn">🌙 Dark Mode</button>
