@@ -3928,7 +3928,10 @@ async function analyzeGamesForLearning() {
                     
                     if (ai.neuralNetwork.validationLoss.length > 0) {
                         const lastValLoss = ai.neuralNetwork.validationLoss[ai.neuralNetwork.validationLoss.length - 1];
-                        const valAccuracy = (1 - lastValLoss) * 100; // Rough approximation
+                        // Approximate accuracy from loss for binary classification
+                        // This is a simplified metric; actual accuracy would require validation predictions
+                        // For binary cross-entropy loss, lower loss correlates with higher accuracy
+                        const valAccuracy = Math.max(0, Math.min(100, (1 - lastValLoss) * 100));
                         nnValAcc.textContent = valAccuracy.toFixed(1) + '%';
                     } else {
                         nnValAcc.textContent = '-';
@@ -4002,11 +4005,14 @@ async function analyzeGamesForLearning() {
                     ensembleWeightsDiv.innerHTML = weightsHTML;
                 }
                 
-                // Feature Importance (placeholder - would require actual calculation from NN weights)
+                // Feature Importance (calculated from neural network first layer weights)
+                // Note: This is an approximation using L2 norm of weight connections
+                // True feature importance would require permutation importance or SHAP values
                 if (ai.featureExtractor && ai.neuralNetwork && ai.neuralNetwork.epochs > 0) {
                     const featureImportanceDiv = document.getElementById('featureImportance');
                     
                     // Calculate approximate feature importance from first layer weights
+                    // L2 norm of weights gives a rough measure of feature influence
                     const weights = ai.neuralNetwork.weights[0]; // First layer weights
                     if (weights && weights.length > 0) {
                         const importances = [];
@@ -4015,8 +4021,13 @@ async function analyzeGamesForLearning() {
                         for (let i = 0; i < Math.min(weights.length, featureNames.length); i++) {
                             const weightRow = weights[i];
                             // Calculate L2 norm of weights for this feature
+                            // Higher norm suggests stronger influence on the network
                             const importance = Math.sqrt(weightRow.reduce((sum, w) => sum + w * w, 0));
-                            importances.push({ name: featureNames[i], importance: importance });
+                            importances.push({ 
+                                name: featureNames[i], 
+                                importance: importance,
+                                originalName: featureNames[i]
+                            });
                         }
                         
                         // Sort by importance and get top 10
@@ -4027,11 +4038,18 @@ async function analyzeGamesForLearning() {
                         let importanceHTML = '';
                         for (const feature of top10) {
                             const percentage = (feature.importance / maxImportance * 100);
+                            // Format feature name for display
+                            const displayName = feature.name
+                                .replace(/_/g, ' ')
+                                .split(' ')
+                                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                                .join(' ');
+                            
                             importanceHTML += `
                                 <div class="flex items-center gap-2">
                                     <div class="flex-1">
                                         <div class="flex justify-between text-xs mb-1">
-                                            <span class="font-medium">${feature.name.replace(/_/g, ' ')}</span>
+                                            <span class="font-medium">${displayName}</span>
                                             <span class="text-gray-600 dark:text-gray-400">${percentage.toFixed(1)}%</span>
                                         </div>
                                         <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
