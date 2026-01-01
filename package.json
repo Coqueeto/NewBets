@@ -1,0 +1,20 @@
+{
+  "name": "newbets",
+  "version": "5.4.0",
+  "description": "AI-powered betting system with secure API key management",
+  "scripts": {
+    "build:css": "echo 'No Tailwind CSS build needed - using CDN'",
+    "dev": "echo 'Open ai-betting-system.html in your browser'"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Coqueeto/NewBets"
+  },
+  "keywords": [
+    "betting",
+    "ai",
+    "odds-api"
+  ],
+  "author": "",
+  "license": "ISC"
+}
