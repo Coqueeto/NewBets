@@ -2134,9 +2134,13 @@
                 const kelly = ((b * winProbability) - q) / b;
                 
                 // Use fractional Kelly for safety
-                // Apply fractional Kelly multiplier and cap at KELLY_FRACTION
+                // Apply fractional Kelly multiplier (1/4) for conservative bet sizing
+                // Only bet if kelly is positive (edge exists)
+                if (kelly <= 0) return 0;
+                
                 const fractionalKelly = kelly * KELLY_FRACTION;
-                return Math.max(0, Math.min(KELLY_FRACTION, fractionalKelly));
+                // Cap at KELLY_FRACTION in case of very favorable odds
+                return Math.min(KELLY_FRACTION, fractionalKelly);
             }
 
             learn() {

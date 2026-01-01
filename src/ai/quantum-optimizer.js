@@ -25,7 +25,8 @@ class QuantumOptimizer {
         individual.velocity[d] = (Math.random() - 0.5) * 0.1;
         
         // Proper quantum state initialization with normalization constraint
-        // alpha² + beta² = 1
+        // Using single angle theta: alpha = cos(theta), beta = sin(theta)
+        // This automatically satisfies alpha² + beta² = cos²(theta) + sin²(theta) = 1
         const theta = Math.random() * Math.PI; // Single random angle
         individual.qstate[d] = {
           alpha: Math.cos(theta), // Amplitude for |0⟩

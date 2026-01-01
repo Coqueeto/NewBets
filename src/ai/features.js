@@ -89,14 +89,15 @@ class FeatureExtractor {
     const wins = perf.wins || 0;
     let winRate = wins / games;
     
-    // Apply location-specific adjustment (additive to maintain probability constraints)
+    // Apply location-specific adjustment (additive)
+    // Note: Adjustment may temporarily violate [0,1], corrected by clamping below
     if (location === 'home') {
       winRate += 0.05; // Home teams typically perform 5% better
     } else if (location === 'away') {
       winRate -= 0.05; // Away teams typically perform 5% worse
     }
     
-    // Clamp to [0, 1] to maintain probability constraints
+    // Clamp to [0, 1] to enforce probability constraints
     return Math.max(0, Math.min(1, winRate));
   }
 
@@ -251,7 +252,10 @@ class FeatureExtractor {
   }
 
   calculateEV(game) {
-    // Expected value
+    // Expected value calculation (simplified - uses implied probability as estimate)
+    // Note: Ideally this should use model's predicted probability, but that requires
+    // passing the model as parameter. This version uses implied probability from odds
+    // as a baseline estimate, which can be refined when called from analyzeGame.
     const bookmakers = game.bookmakers || [];
     if (bookmakers.length === 0) return 0;
     
@@ -261,11 +265,10 @@ class FeatureExtractor {
     const homeOdds = market.outcomes[0]?.price || 100;
     const impliedProb = this.oddsToProb(homeOdds);
     
-    // Proper EV calculation: EV = (probability × profit) - ((1 - probability) × stake)
-    // For American odds, profit on $1 bet:
+    // EV = (probability × profit) - ((1 - probability) × stake)
+    // Using implied probability as baseline estimate
     const profit = homeOdds > 0 ? (homeOdds / 100) : (100 / Math.abs(homeOdds));
     
-    // EV = (p × profit) - ((1 - p) × 1)
     return (impliedProb * profit) - (1 - impliedProb);
   }
 

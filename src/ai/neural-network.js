@@ -99,6 +99,9 @@ class NeuralNetwork {
       );
       
       // Apply dropout during training (except output layer)
+      // Dropout randomly zeros out neurons with probability `dropout`
+      // Scale remaining activations by 1/(1-dropout_rate) to maintain expected magnitude
+      // This "inverted dropout" approach eliminates the need for scaling at test time
       let mask = null;
       if (training && !isOutputLayer && layer.dropout > 0) {
         mask = activation.map(() => 

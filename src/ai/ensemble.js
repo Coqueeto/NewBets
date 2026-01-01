@@ -71,8 +71,12 @@ class EnsembleModel {
     }
 
     // Softmax normalization of weights based on performance
-    // Temperature = 5: Higher temperature = more even distribution, lower = more extreme
-    // This value balances between trusting top performers and maintaining diversity
+    // Temperature controls the distribution:
+    //   - Higher temperature (>5): More even distribution, less aggressive
+    //   - Lower temperature (<5): More extreme, favors top performers strongly
+    //   - Temperature = 5: Balanced approach chosen for betting to maintain diversity
+    //     while still rewarding good performance. Empirically works well for 
+    //     ensemble models with 0.5-0.9 accuracy range.
     const temperature = 5;
     const scores = Object.entries(performances).map(([name, perf]) => 
       [name, Math.exp(perf * temperature)]
