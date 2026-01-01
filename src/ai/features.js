@@ -385,3 +385,8 @@ class FeatureExtractor {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = FeatureExtractor;
 }
+
+// Make available globally for browser use
+if (typeof window !== 'undefined') {
+    window.FeatureExtractor = FeatureExtractor;
+}

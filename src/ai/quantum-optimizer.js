@@ -323,3 +323,8 @@ class QuantumOptimizer {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = QuantumOptimizer;
 }
+
+// Make available globally for browser use
+if (typeof window !== 'undefined') {
+    window.QuantumOptimizer = QuantumOptimizer;
+}

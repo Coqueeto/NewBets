@@ -433,3 +433,8 @@ class NeuralNetwork {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = NeuralNetwork;
 }
+
+// Make available globally for browser use
+if (typeof window !== 'undefined') {
+    window.NeuralNetwork = NeuralNetwork;
+}

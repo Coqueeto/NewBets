@@ -341,3 +341,10 @@ if (typeof module !== 'undefined' && module.exports) {
         PlaceholderModel
     };
 }
+
+// Make available globally for browser use
+if (typeof window !== 'undefined') {
+    window.EnsembleModel = EnsembleModel;
+    window.SimpleBayesianModel = SimpleBayesianModel;
+    window.PlaceholderModel = PlaceholderModel;
+}

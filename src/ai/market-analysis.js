@@ -486,3 +486,8 @@ class MarketAnalyzer {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = MarketAnalyzer;
 }
+
+// Make available globally for browser use
+if (typeof window !== 'undefined') {
+    window.MarketAnalyzer = MarketAnalyzer;
+}

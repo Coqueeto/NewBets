@@ -1942,7 +1942,652 @@
             }
         }
 
-        const ai = new BettingAI();
+        // ============================================================
+        // ADVANCED MULTI-MODEL AI SYSTEM
+        // ============================================================
+        
+        /**
+         * Load AI modules dynamically
+         * Returns status object indicating success/failure
+         */
+        async function loadAIModules() {
+            const modules = {
+                FeatureExtractor: null,
+                NeuralNetwork: null,
+                EnsembleModel: null,
+                QuantumOptimizer: null,
+                MarketAnalyzer: null
+            };
+            
+            try {
+                // Load all modules using dynamic script loading
+                const modulePromises = [
+                    loadScript('./src/ai/features.js'),
+                    loadScript('./src/ai/neural-network.js'),
+                    loadScript('./src/ai/ensemble.js'),
+                    loadScript('./src/ai/quantum-optimizer.js'),
+                    loadScript('./src/ai/market-analysis.js')
+                ];
+                
+                await Promise.all(modulePromises);
+                
+                // Access loaded classes from global scope
+                modules.FeatureExtractor = window.FeatureExtractor;
+                modules.NeuralNetwork = window.NeuralNetwork;
+                modules.EnsembleModel = window.EnsembleModel;
+                modules.QuantumOptimizer = window.QuantumOptimizer;
+                modules.MarketAnalyzer = window.MarketAnalyzer;
+                
+                console.log('✅ Advanced AI modules loaded successfully');
+                return { success: true, modules };
+            } catch (error) {
+                console.warn('⚠️ AI modules failed to load, using fallback Bayesian AI:', error);
+                return { success: false, error, modules: null };
+            }
+        }
+        
+        /**
+         * Helper to load script dynamically
+         */
+        function loadScript(src) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        }
+        
+        /**
+         * Advanced Betting AI System
+         * Extends base BettingAI with 55-feature extraction, neural network,
+         * ensemble voting, quantum optimization, and market analysis
+         */
+        class AdvancedBettingAI extends BettingAI {
+            constructor() {
+                super();
+                
+                // Constants
+                this.FEATURE_COUNT = 55;
+                this.HIDDEN_LAYERS = [100, 50, 25];
+                this.KELLY_FRACTION = 0.25;
+                this.TRAINING_FREQUENCY = 50;
+                this.OPTIMIZATION_FREQUENCY = 500;
+                
+                // Advanced modules (initialized later)
+                this.featureExtractor = null;
+                this.neuralNetwork = null;
+                this.ensemble = null;
+                this.quantumOptimizer = null;
+                this.marketAnalyzer = null;
+                
+                // State
+                this.advancedModulesLoaded = false;
+                this.trainingData = [];
+                this.optimizationHistory = [];
+            }
+            
+            /**
+             * Initialize advanced modules asynchronously
+             */
+            async initializeAdvancedModules() {
+                try {
+                    const result = await loadAIModules();
+                    
+                    if (!result.success) {
+                        console.warn('Falling back to base Bayesian AI');
+                        return false;
+                    }
+                    
+                    const { modules } = result;
+                    
+                    // Initialize feature extractor
+                    this.featureExtractor = new modules.FeatureExtractor();
+                    
+                    // Initialize or load neural network
+                    const savedNN = this._loadFromStorage('neuralNetwork');
+                    if (savedNN) {
+                        this.neuralNetwork = modules.NeuralNetwork.fromJSON(savedNN);
+                        console.log('✅ Loaded neural network from storage');
+                    } else {
+                        this.neuralNetwork = new modules.NeuralNetwork(
+                            this.FEATURE_COUNT,
+                            this.HIDDEN_LAYERS,
+                            1
+                        );
+                        console.log('✅ Initialized new neural network');
+                    }
+                    
+                    // Initialize ensemble
+                    const savedEnsemble = this._loadFromStorage('ensemble');
+                    if (savedEnsemble) {
+                        this.ensemble = modules.EnsembleModel.fromJSON(savedEnsemble);
+                        console.log('✅ Loaded ensemble from storage');
+                    } else {
+                        this.ensemble = new modules.EnsembleModel();
+                        console.log('✅ Initialized new ensemble');
+                    }
+                    
+                    // Register models in ensemble
+                    this.ensemble.registerModel('neuralNetwork', this.neuralNetwork);
+                    this.ensemble.registerModel('bayesian', this); // Use base Bayesian AI
+                    
+                    // Add placeholder models for other slots
+                    const PlaceholderModel = modules.PlaceholderModel || class {
+                        predict() { return 0.5; }
+                    };
+                    this.ensemble.registerModel('gradientBoosting', new PlaceholderModel('GB'));
+                    this.ensemble.registerModel('randomForest', new PlaceholderModel('RF'));
+                    this.ensemble.registerModel('svm', new PlaceholderModel('SVM'));
+                    
+                    // Initialize quantum optimizer
+                    const savedOptimizer = this._loadFromStorage('quantumOptimizer');
+                    if (savedOptimizer) {
+                        this.quantumOptimizer = modules.QuantumOptimizer.fromJSON(savedOptimizer);
+                    } else {
+                        this.quantumOptimizer = new modules.QuantumOptimizer({
+                            populationSize: 20,
+                            maxIterations: 100
+                        });
+                    }
+                    
+                    // Initialize market analyzer
+                    const savedAnalyzer = this._loadFromStorage('marketAnalyzer');
+                    if (savedAnalyzer) {
+                        this.marketAnalyzer = modules.MarketAnalyzer.fromJSON(savedAnalyzer);
+                    } else {
+                        this.marketAnalyzer = new modules.MarketAnalyzer({
+                            valueThreshold: 0.05,
+                            steamMoveThreshold: 0.03
+                        });
+                    }
+                    
+                    this.advancedModulesLoaded = true;
+                    console.log('✅ Advanced AI system initialized successfully');
+                    return true;
+                    
+                } catch (error) {
+                    console.error('❌ Advanced AI initialization failed:', error);
+                    return false;
+                }
+            }
+            
+            /**
+             * Override analyzeGame to use advanced features
+             */
+            async analyzeGame(game) {
+                // If advanced modules not loaded, fall back to base implementation
+                if (!this.advancedModulesLoaded) {
+                    return super.analyzeGame(game);
+                }
+                
+                try {
+                    // Extract 55 features
+                    const features = this.featureExtractor.extract(
+                        game,
+                        this._buildHistoricalData(game),
+                        this._buildMarketData(game)
+                    );
+                    
+                    // Get ensemble prediction
+                    const ensembleResult = this.ensemble.predict(features);
+                    
+                    // Perform market analysis
+                    const marketAnalysis = this.marketAnalyzer.analyzeMarket(game);
+                    
+                    // Calculate confidence
+                    const baseConfidence = ensembleResult.confidence * 100;
+                    const adjustedConfidence = baseConfidence * marketAnalysis.marketEfficiency;
+                    
+                    // Get best odds
+                    const bestOdds = this._getBestOdds(game);
+                    
+                    // Determine if this is a value bet
+                    const isValueBet = marketAnalysis.hasValueBet && adjustedConfidence >= 75;
+                    
+                    // Calculate Kelly Criterion bet size
+                    const kellySuggestion = this._calculateKellyCriterion(
+                        ensembleResult.prediction,
+                        bestOdds.odds
+                    );
+                    
+                    // Build prediction object
+                    const prediction = {
+                        game: `${game.away_team || 'Away'} @ ${game.home_team || 'Home'}`,
+                        gameId: game.id,
+                        team: bestOdds.team,
+                        opponent: bestOdds.opponent,
+                        type: 'Moneyline',
+                        betDetails: `${bestOdds.team} to Win`,
+                        odds: bestOdds.odds,
+                        confidence: adjustedConfidence,
+                        implied: (ensembleResult.prediction * 100).toFixed(1),
+                        discrepancy: (marketAnalysis.valueEdge * 100).toFixed(1),
+                        gameTime: game.commence_time || new Date().toISOString(),
+                        settled: false,
+                        
+                        // Advanced metrics
+                        ensembleAgreement: (ensembleResult.agreement * 100).toFixed(1),
+                        modelPredictions: ensembleResult.modelPredictions,
+                        valueEdge: marketAnalysis.valueEdge,
+                        marketEfficiency: marketAnalysis.marketEfficiency,
+                        hasArbitrage: marketAnalysis.hasArbitrage,
+                        hasSteamMove: marketAnalysis.hasSteamMove,
+                        sharpMoney: marketAnalysis.sharpMoney,
+                        kellySuggestion: kellySuggestion,
+                        units: Math.ceil(kellySuggestion * 10), // Convert to units
+                        
+                        // AI reasoning
+                        aiReasoning: this._buildAdvancedReasoning(
+                            ensembleResult,
+                            marketAnalysis,
+                            isValueBet
+                        ),
+                        
+                        // Tier information (only show if AI has proven itself)
+                        showTier: this.model.totalBets >= 30 && (this.model.wins / this.model.totalBets) >= 0.80,
+                        confidenceTier: this._getConfidenceTier(adjustedConfidence),
+                        tierName: this._getTierName(adjustedConfidence),
+                        
+                        // Super elite status (95%+ AI win rate)
+                        superElite: this._isSuperElite(adjustedConfidence, ensembleResult.agreement),
+                        highProbability: isValueBet && adjustedConfidence >= 85,
+                        moneyMakerScore: ensembleResult.agreement * 100,
+                        moneyMakerFactors: this._getMoneyMakerFactors(marketAnalysis)
+                    };
+                    
+                    // Store for training
+                    this.trainingData.push({
+                        features: features,
+                        prediction: prediction
+                    });
+                    
+                    // Train neural network periodically
+                    if (this.model.totalBets > 0 && this.model.totalBets % this.TRAINING_FREQUENCY === 0) {
+                        this._trainNeuralNetwork();
+                    }
+                    
+                    // Optimize hyperparameters periodically
+                    if (this.model.totalBets > 0 && this.model.totalBets % this.OPTIMIZATION_FREQUENCY === 0) {
+                        this._optimizeHyperparameters();
+                    }
+                    
+                    // Save models
+                    this._saveModels();
+                    
+                    return prediction;
+                    
+                } catch (error) {
+                    console.error('Advanced analysis failed, using fallback:', error);
+                    return super.analyzeGame(game);
+                }
+            }
+            
+            /**
+             * Build historical data for feature extraction
+             */
+            _buildHistoricalData(game) {
+                const teamStats = this.model.teamPerformance?.[game.home_team] || {};
+                const oppStats = this.model.teamPerformance?.[game.away_team] || {};
+                
+                return {
+                    teamStats: {
+                        winRate: teamStats.wins && teamStats.games ? teamStats.wins / teamStats.games : 0.5,
+                        recentForm: 0.5, // Placeholder
+                        h2hRecord: 0.5,
+                        streak: 0,
+                        avgScore: 0
+                    },
+                    oppStats: {
+                        winRate: oppStats.wins && oppStats.games ? oppStats.wins / oppStats.games : 0.5,
+                        recentForm: 0.5,
+                        h2hRecord: 0.5,
+                        streak: 0,
+                        avgScore: 0
+                    },
+                    restDaysTeam: 3,
+                    restDaysOpp: 3,
+                    travelDistance: 0,
+                    timezoneDiff: 0,
+                    altitudeDiff: 0,
+                    weatherImpact: 0,
+                    injuryImpact: 0,
+                    motivationFactor: 0.5,
+                    schedulePosition: 0.5
+                };
+            }
+            
+            /**
+             * Build market data for feature extraction
+             */
+            _buildMarketData(game) {
+                return {
+                    oddsValue: 0,
+                    sharpMoney: false,
+                    steamMove: false,
+                    publicBettingPct: 50,
+                    marketEfficiency: 0.9,
+                    bookmakerEdge: 0.05,
+                    oddsConsensus: 0.5,
+                    oddsVolatility: 0,
+                    marketLiquidity: 0.5,
+                    arbitrage: false
+                };
+            }
+            
+            /**
+             * Get best odds from bookmakers
+             */
+            _getBestOdds(game) {
+                const home = game.home_team || 'Home';
+                const away = game.away_team || 'Away';
+                
+                let bestOdds = { team: home, opponent: away, odds: 100 };
+                
+                if (game.bookmakers && game.bookmakers[0]) {
+                    const market = game.bookmakers[0].markets?.find(m => m.key === 'h2h');
+                    if (market && market.outcomes) {
+                        const outcomes = market.outcomes;
+                        if (outcomes.length >= 2) {
+                            // Pick team with better odds
+                            bestOdds = outcomes[0].price > outcomes[1].price ? {
+                                team: outcomes[0].name,
+                                opponent: outcomes[1].name,
+                                odds: outcomes[0].price
+                            } : {
+                                team: outcomes[1].name,
+                                opponent: outcomes[0].name,
+                                odds: outcomes[1].price
+                            };
+                        }
+                    }
+                }
+                
+                return bestOdds;
+            }
+            
+            /**
+             * Calculate fractional Kelly Criterion
+             */
+            _calculateKellyCriterion(probability, odds) {
+                try {
+                    // Convert American odds to decimal
+                    const decimal = odds > 0 ? (odds / 100) + 1 : (100 / Math.abs(odds)) + 1;
+                    
+                    // Kelly formula: (bp - q) / b, where b = decimal odds - 1, p = probability, q = 1-p
+                    const b = decimal - 1;
+                    const p = probability;
+                    const q = 1 - p;
+                    
+                    const kelly = (b * p - q) / b;
+                    
+                    // Apply fractional Kelly (1/4 Kelly for safety)
+                    const fractionalKelly = kelly * this.KELLY_FRACTION;
+                    
+                    // Clamp between 0 and KELLY_FRACTION
+                    return Math.max(0, Math.min(this.KELLY_FRACTION, fractionalKelly));
+                    
+                } catch (error) {
+                    console.warn('Kelly calculation error:', error);
+                    return 0.05; // Default 5% bet
+                }
+            }
+            
+            /**
+             * Build advanced AI reasoning
+             */
+            _buildAdvancedReasoning(ensembleResult, marketAnalysis, isValueBet) {
+                const reasons = [];
+                
+                if (ensembleResult.agreement > 0.85) {
+                    reasons.push(`Strong model agreement (${(ensembleResult.agreement * 100).toFixed(1)}%)`);
+                }
+                
+                if (isValueBet) {
+                    reasons.push(`Value bet detected (+${(marketAnalysis.valueEdge * 100).toFixed(1)}% edge)`);
+                }
+                
+                if (marketAnalysis.sharpMoney) {
+                    reasons.push('Sharp money detected (reverse line movement)');
+                }
+                
+                if (marketAnalysis.hasSteamMove) {
+                    reasons.push(`Steam move detected (${(marketAnalysis.steamMoveSize * 100).toFixed(1)}% movement)`);
+                }
+                
+                if (marketAnalysis.marketEfficiency > 0.9) {
+                    reasons.push('Highly efficient market');
+                } else if (marketAnalysis.marketEfficiency < 0.7) {
+                    reasons.push('Market inefficiency detected');
+                }
+                
+                if (marketAnalysis.hasArbitrage) {
+                    reasons.push(`Arbitrage opportunity (+${(marketAnalysis.arbitrageProfit * 100).toFixed(2)}% profit)`);
+                }
+                
+                return reasons.length > 0 ? reasons : ['Standard ensemble prediction'];
+            }
+            
+            /**
+             * Get confidence tier emoji
+             */
+            _getConfidenceTier(confidence) {
+                if (confidence >= 95) return '💎';
+                if (confidence >= 85) return '🔥';
+                if (confidence >= 75) return '⭐';
+                return '📊';
+            }
+            
+            /**
+             * Get tier name
+             */
+            _getTierName(confidence) {
+                if (confidence >= 95) return 'ELITE';
+                if (confidence >= 85) return 'PREMIUM';
+                if (confidence >= 75) return 'STRONG';
+                return 'STANDARD';
+            }
+            
+            /**
+             * Check if super elite (95%+ AI win rate)
+             */
+            _isSuperElite(confidence, agreement) {
+                const aiWinRate = this.model.totalBets > 0 ? (this.model.wins / this.model.totalBets) : 0;
+                return aiWinRate >= 0.95 && 
+                       this.model.totalBets >= 30 && 
+                       confidence >= 90 && 
+                       agreement >= 0.9;
+            }
+            
+            /**
+             * Get money maker factors
+             */
+            _getMoneyMakerFactors(marketAnalysis) {
+                const factors = [];
+                
+                if (marketAnalysis.hasValueBet) factors.push('Value Bet');
+                if (marketAnalysis.sharpMoney) factors.push('Sharp Money');
+                if (marketAnalysis.hasSteamMove) factors.push('Steam Move');
+                if (marketAnalysis.marketEfficiency < 0.7) factors.push('Market Inefficiency');
+                
+                return factors;
+            }
+            
+            /**
+             * Train neural network with collected data
+             */
+            _trainNeuralNetwork() {
+                try {
+                    const settled = this.trainingData.filter(d => d.prediction.settled);
+                    
+                    if (settled.length < 20) {
+                        console.log('Not enough settled bets for training (need 20+)');
+                        return;
+                    }
+                    
+                    // Prepare training data
+                    const inputs = settled.map(d => d.features);
+                    const targets = settled.map(d => d.prediction.won ? 1 : 0);
+                    
+                    console.log(`🧠 Training neural network with ${settled.length} examples...`);
+                    
+                    // Train
+                    const result = this.neuralNetwork.train(inputs, targets, {
+                        epochs: 50,
+                        batchSize: 32,
+                        validationSplit: 0.2,
+                        verbose: false
+                    });
+                    
+                    console.log(`✅ Training complete - Final loss: ${result.finalLoss.toFixed(6)}`);
+                    
+                    // Save trained network
+                    this._saveModels();
+                    
+                } catch (error) {
+                    console.error('Neural network training error:', error);
+                }
+            }
+            
+            /**
+             * Optimize hyperparameters using quantum optimizer
+             */
+            _optimizeHyperparameters() {
+                try {
+                    const settled = this.trainingData.filter(d => d.prediction.settled);
+                    
+                    if (settled.length < 100) {
+                        console.log('Not enough data for hyperparameter optimization (need 100+)');
+                        return;
+                    }
+                    
+                    console.log('🔬 Running quantum hyperparameter optimization...');
+                    
+                    // Prepare data
+                    const inputs = settled.map(d => d.features);
+                    const targets = settled.map(d => d.prediction.won ? 1 : 0);
+                    
+                    // Split into train/validation
+                    const splitIdx = Math.floor(inputs.length * 0.8);
+                    const trainInputs = inputs.slice(0, splitIdx);
+                    const trainTargets = targets.slice(0, splitIdx);
+                    const validInputs = inputs.slice(splitIdx);
+                    const validTargets = targets.slice(splitIdx);
+                    
+                    // Run optimization
+                    const result = this.quantumOptimizer.optimizeNeuralNetwork(
+                        this.neuralNetwork,
+                        trainInputs,
+                        trainTargets,
+                        validInputs,
+                        validTargets
+                    );
+                    
+                    console.log('✅ Optimization complete:', result.params);
+                    console.log(`   Best fitness: ${(result.fitness * 100).toFixed(1)}%`);
+                    
+                    // Apply optimized parameters
+                    this.neuralNetwork.learningRate = result.params.learningRate;
+                    this.neuralNetwork.momentum = result.params.momentum;
+                    this.neuralNetwork.l2Lambda = result.params.l2Lambda;
+                    this.neuralNetwork.dropoutRate = result.params.dropoutRate;
+                    
+                    // Save optimization history
+                    this.optimizationHistory.push({
+                        timestamp: Date.now(),
+                        params: result.params,
+                        fitness: result.fitness
+                    });
+                    
+                    this._saveModels();
+                    
+                } catch (error) {
+                    console.error('Hyperparameter optimization error:', error);
+                }
+            }
+            
+            /**
+             * Save all models to localStorage
+             */
+            _saveModels() {
+                try {
+                    if (this.neuralNetwork) {
+                        this._saveToStorage('neuralNetwork', this.neuralNetwork.toJSON());
+                    }
+                    if (this.ensemble) {
+                        this._saveToStorage('ensemble', this.ensemble.toJSON());
+                    }
+                    if (this.quantumOptimizer) {
+                        this._saveToStorage('quantumOptimizer', this.quantumOptimizer.toJSON());
+                    }
+                    if (this.marketAnalyzer) {
+                        this._saveToStorage('marketAnalyzer', this.marketAnalyzer.toJSON());
+                    }
+                    
+                    // Save training data (keep last 1000)
+                    if (this.trainingData.length > 1000) {
+                        this.trainingData = this.trainingData.slice(-1000);
+                    }
+                    this._saveToStorage('trainingData', this.trainingData);
+                    
+                } catch (error) {
+                    console.warn('Model save error:', error);
+                }
+            }
+            
+            /**
+             * Save to localStorage with key prefix
+             */
+            _saveToStorage(key, data) {
+                try {
+                    localStorage.setItem(`advancedAI_${key}`, JSON.stringify(data));
+                } catch (error) {
+                    console.warn(`Failed to save ${key}:`, error);
+                }
+            }
+            
+            /**
+             * Load from localStorage with key prefix
+             */
+            _loadFromStorage(key) {
+                try {
+                    const data = localStorage.getItem(`advancedAI_${key}`);
+                    return data ? JSON.parse(data) : null;
+                } catch (error) {
+                    console.warn(`Failed to load ${key}:`, error);
+                    return null;
+                }
+            }
+        }
+
+        // Initialize AI system
+        let ai;
+        
+        // Try to initialize advanced AI, fall back to basic if it fails
+        (async function initializeAI() {
+            try {
+                ai = new AdvancedBettingAI();
+                const success = await ai.initializeAdvancedModules();
+                
+                if (success) {
+                    console.log('🚀 Running with Advanced Multi-Model AI System');
+                } else {
+                    console.log('🔄 Running with Basic Bayesian AI (Advanced modules unavailable)');
+                }
+            } catch (error) {
+                console.warn('Advanced AI initialization failed, using basic Bayesian AI:', error);
+                ai = new BettingAI();
+            }
+        })();
+        
+        // Fallback: create basic AI if initialization takes too long
+        setTimeout(() => {
+            if (!ai) {
+                console.log('⏱️ AI initialization timeout, using basic Bayesian AI');
+                ai = new BettingAI();
+            }
+        }, 5000);
 
         // Helper: return calibrated probability for a raw confidence value
         ai.computeCalibratedConfidence = function(confidence) {
