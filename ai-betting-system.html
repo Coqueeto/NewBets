@@ -883,7 +883,13 @@
         ];
 
         // Verify API key is loaded
-        if (!ODDS_API_KEYS[0] || ODDS_API_KEYS[0].key.includes('__') || ODDS_API_KEYS[0].key === 'REPLACE_WITH_LOCAL_DEV_KEY') {
+        const apiKey = ODDS_API_KEYS[0]?.key || '';
+        const isInvalidKey = !apiKey || 
+                            apiKey.trim() === '' || 
+                            apiKey.includes('__') || 
+                            apiKey === 'REPLACE_WITH_LOCAL_DEV_KEY';
+        
+        if (isInvalidKey) {
             console.warn('⚠️ API key not properly configured. Some features may not work.');
             console.warn('For production: Ensure ODDS_API_KEY is set in GitHub Secrets');
         }
