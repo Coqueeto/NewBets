@@ -28,12 +28,7 @@ try {
   console.error('Error generating config.js:', error.message);
   process.exit(1);
 }
-" 
+" || exit 1
 
-if [ $? -eq 0 ]; then
-    echo "✅ config.js created successfully!"
-    echo "🔒 This file is in .gitignore and won't be committed"
-else
-    echo "❌ Failed to create config.js"
-    exit 1
-fi
+echo "✅ config.js created successfully!"
+echo "🔒 This file is in .gitignore and won't be committed"
