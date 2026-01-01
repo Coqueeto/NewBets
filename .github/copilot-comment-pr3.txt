@@ -1,0 +1,1 @@
+@copilot please update this branch with the latest changes from main and resolve any merge conflicts. Make sure to preserve both the secure API key management from main and all the advanced AI system changes from this PR.
