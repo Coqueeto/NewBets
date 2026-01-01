@@ -6,3 +6,10 @@ node_modules/
 .vscode/
 .idea/
 config.js
+/tmp/
+dist/
+build/
+*.swp
+*.swo
+*~
+.cache/
