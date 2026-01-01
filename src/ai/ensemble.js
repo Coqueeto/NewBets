@@ -71,8 +71,11 @@ class EnsembleModel {
     }
 
     // Softmax normalization of weights based on performance
+    // Temperature = 5: Higher temperature = more even distribution, lower = more extreme
+    // This value balances between trusting top performers and maintaining diversity
+    const temperature = 5;
     const scores = Object.entries(performances).map(([name, perf]) => 
-      [name, Math.exp(perf * 5)] // Temperature = 5
+      [name, Math.exp(perf * temperature)]
     );
     
     const totalScore = scores.reduce((sum, [_, score]) => sum + score, 0);

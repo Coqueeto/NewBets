@@ -1974,6 +1974,11 @@
             }
         }
 
+        // Constants for advanced AI
+        const FEATURE_COUNT = 55; // Number of features extracted per game
+        const HIDDEN_LAYERS = [100, 50, 25]; // Neural network architecture
+        const KELLY_FRACTION = 0.25; // Use 1/4 Kelly for conservative bet sizing
+
         // Advanced AI System extending BettingAI
         class AdvancedBettingAI extends BettingAI {
             constructor() {
@@ -2022,7 +2027,7 @@
                     }
                     
                     this.featureExtractor = new FeatureExtractor();
-                    this.neuralNetwork = new NeuralNetwork(55, [100, 50, 25], 1); // 55 inputs, 3 hidden layers, 1 output
+                    this.neuralNetwork = new NeuralNetwork(FEATURE_COUNT, HIDDEN_LAYERS, 1);
                     this.ensemble = new EnsembleModel();
                     this.quantumOptimizer = new QuantumOptimizer();
                     this.marketAnalyzer = new MarketAnalyzer();
@@ -2055,9 +2060,9 @@
                     const features = this.featureExtractor.extractFeatures(game, historicalData);
                     const featureVector = Object.values(features);
                     
-                    // Pad or trim to exactly 55 features
-                    while (featureVector.length < 55) featureVector.push(0.5);
-                    if (featureVector.length > 55) featureVector.length = 55;
+                    // Pad or trim to expected feature count
+                    while (featureVector.length < FEATURE_COUNT) featureVector.push(0.5);
+                    if (featureVector.length > FEATURE_COUNT) featureVector.length = FEATURE_COUNT;
                     
                     // Get ensemble prediction
                     const ensembleResult = this.ensemble.predict(featureVector);
@@ -2128,8 +2133,10 @@
                 // Kelly formula: f = (bp - q) / b
                 const kelly = ((b * winProbability) - q) / b;
                 
-                // Use fractional Kelly (1/4) for safety
-                return Math.max(0, Math.min(0.25, kelly * 0.25));
+                // Use fractional Kelly for safety
+                // Apply fractional Kelly multiplier and cap at KELLY_FRACTION
+                const fractionalKelly = kelly * KELLY_FRACTION;
+                return Math.max(0, Math.min(KELLY_FRACTION, fractionalKelly));
             }
 
             learn() {
@@ -2195,9 +2202,9 @@
                             const features = this.featureExtractor.extractFeatures(gameData, historicalData);
                             const featureVector = Object.values(features);
                             
-                            // Pad or trim to exactly 55 features
-                            while (featureVector.length < 55) featureVector.push(0.5);
-                            if (featureVector.length > 55) featureVector.length = 55;
+                            // Pad or trim to expected feature count
+                            while (featureVector.length < FEATURE_COUNT) featureVector.push(0.5);
+                            if (featureVector.length > FEATURE_COUNT) featureVector.length = FEATURE_COUNT;
                             
                             return {
                                 features: featureVector,

@@ -75,6 +75,7 @@ class NeuralNetwork {
     let activation = input;
     const activations = [activation];
     const zValues = [];
+    const dropoutMasks = []; // Store masks for backward pass
 
     for (let i = 0; i < this.layers.length; i++) {
       const layer = this.layers[i];
@@ -98,17 +99,19 @@ class NeuralNetwork {
       );
       
       // Apply dropout during training (except output layer)
+      let mask = null;
       if (training && !isOutputLayer && layer.dropout > 0) {
-        const mask = activation.map(() => 
+        mask = activation.map(() => 
           Math.random() > layer.dropout ? 1 / (1 - layer.dropout) : 0
         );
         activation = activation.map((val, idx) => val * mask[idx]);
       }
+      dropoutMasks.push(mask);
       
       activations.push(activation);
     }
 
-    return { output: activation, activations, zValues };
+    return { output: activation, activations, zValues, dropoutMasks };
   }
 
   // Backpropagation with Adam optimizer

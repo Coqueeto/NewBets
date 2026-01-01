@@ -23,9 +23,13 @@ class QuantumOptimizer {
       for (let d = 0; d < dimensions; d++) {
         individual.position[d] = Math.random() * (bounds[d][1] - bounds[d][0]) + bounds[d][0];
         individual.velocity[d] = (Math.random() - 0.5) * 0.1;
+        
+        // Proper quantum state initialization with normalization constraint
+        // alpha² + beta² = 1
+        const theta = Math.random() * Math.PI; // Single random angle
         individual.qstate[d] = {
-          alpha: Math.cos(Math.random() * Math.PI), // Amplitude for |0⟩
-          beta: Math.sin(Math.random() * Math.PI)   // Amplitude for |1⟩
+          alpha: Math.cos(theta), // Amplitude for |0⟩
+          beta: Math.sin(theta)   // Amplitude for |1⟩
         };
       }
       

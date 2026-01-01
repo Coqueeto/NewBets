@@ -89,14 +89,15 @@ class FeatureExtractor {
     const wins = perf.wins || 0;
     let winRate = wins / games;
     
-    // Apply location-specific adjustment
+    // Apply location-specific adjustment (additive to maintain probability constraints)
     if (location === 'home') {
-      winRate *= 1.1; // Home teams typically perform 10% better
+      winRate += 0.05; // Home teams typically perform 5% better
     } else if (location === 'away') {
-      winRate *= 0.9; // Away teams typically perform 10% worse
+      winRate -= 0.05; // Away teams typically perform 5% worse
     }
     
-    return Math.max(0, Math.min(1, winRate)); // Clamp to [0, 1]
+    // Clamp to [0, 1] to maintain probability constraints
+    return Math.max(0, Math.min(1, winRate));
   }
 
   getWinStreak(team, data) {
@@ -260,9 +261,12 @@ class FeatureExtractor {
     const homeOdds = market.outcomes[0]?.price || 100;
     const impliedProb = this.oddsToProb(homeOdds);
     
-    // Simple EV calculation
-    const decimalOdds = homeOdds > 0 ? (homeOdds / 100) + 1 : (100 / Math.abs(homeOdds)) + 1;
-    return (impliedProb * decimalOdds) - 1;
+    // Proper EV calculation: EV = (probability × profit) - ((1 - probability) × stake)
+    // For American odds, profit on $1 bet:
+    const profit = homeOdds > 0 ? (homeOdds / 100) : (100 / Math.abs(homeOdds));
+    
+    // EV = (p × profit) - ((1 - p) × 1)
+    return (impliedProb * profit) - (1 - impliedProb);
   }
 
   getWeekOfSeason(game) {
