@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Local development setup script
 
 echo "🔧 Setting up local development environment..."
@@ -13,6 +13,13 @@ fi
 echo ""
 echo "Enter your Odds API key for local development:"
 read -s API_KEY
+
+# Validate API key was entered
+if [ -z "$API_KEY" ]; then
+    echo ""
+    echo "❌ Error: API key cannot be empty"
+    exit 1
+fi
 
 # Generate config.js from template
 # Using | as delimiter to avoid issues with / in API keys
