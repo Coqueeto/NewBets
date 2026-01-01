@@ -2664,6 +2664,10 @@
                 
                 if (success) {
                     console.log('🚀 Running with Advanced Multi-Model AI System');
+                    // Update Advanced AI Dashboard
+                    setTimeout(() => {
+                        updateAdvancedAIDashboard();
+                    }, 100);
                 } else {
                     console.log('🔄 Running with Basic Bayesian AI (Advanced modules unavailable)');
                 }
@@ -3318,6 +3322,7 @@ async function analyzeGamesForLearning() {
                 
                 displayPredictions();
                 updateBankrollUI();
+                updateAdvancedAIDashboard(); // Update Advanced AI Dashboard after analysis
                 
                 // Only show tier breakdown if AI has earned it
                 const aiWinRate = ai.model.totalBets > 0 ? (ai.model.wins / ai.model.totalBets) : 0;
