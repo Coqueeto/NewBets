@@ -72,16 +72,15 @@ class FeatureExtractor {
             const anomalies = this._extractAnomalies(game, historicalData);
             const sportSpecific = this._extractSportSpecific(game, historicalData);
             
-            // Combine all features
-            let idx = 0;
-            features.splice(idx, teamPerf.length, ...teamPerf); idx += teamPerf.length;
-            features.splice(idx, situational.length, ...situational); idx += situational.length;
-            features.splice(idx, market.length, ...market); idx += market.length;
-            features.splice(idx, temporal.length, ...temporal); idx += temporal.length;
-            features.splice(idx, anomalies.length, ...anomalies); idx += anomalies.length;
-            features.splice(idx, sportSpecific.length, ...sportSpecific);
-            
-            return features;
+            // Combine all features efficiently
+            return [
+                ...teamPerf,
+                ...situational,
+                ...market,
+                ...temporal,
+                ...anomalies,
+                ...sportSpecific
+            ];
         } catch (error) {
             console.warn('Feature extraction error:', error);
             return features; // Return zeros on error

@@ -2014,6 +2014,7 @@
                 this.KELLY_FRACTION = 0.25;
                 this.TRAINING_FREQUENCY = 50;
                 this.OPTIMIZATION_FREQUENCY = 500;
+                this.MAX_TRAINING_DATA_SIZE = 1000;
                 
                 // Advanced modules (initialized later)
                 this.featureExtractor = null;
@@ -2026,6 +2027,7 @@
                 this.advancedModulesLoaded = false;
                 this.trainingData = [];
                 this.optimizationHistory = [];
+                this.initializationComplete = false;
             }
             
             /**
@@ -2104,6 +2106,7 @@
                     }
                     
                     this.advancedModulesLoaded = true;
+                    this.initializationComplete = true;
                     console.log('✅ Advanced AI system initialized successfully');
                     return true;
                     
@@ -2309,11 +2312,16 @@
             
             /**
              * Calculate fractional Kelly Criterion
+             * For American odds: positive odds = underdog, negative odds = favorite
              */
             _calculateKellyCriterion(probability, odds) {
                 try {
                     // Convert American odds to decimal
-                    const decimal = odds > 0 ? (odds / 100) + 1 : (100 / Math.abs(odds)) + 1;
+                    // Positive odds (underdog): decimal = (odds / 100) + 1
+                    // Negative odds (favorite): decimal = (100 / |odds|) + 1
+                    const decimal = odds > 0 
+                        ? (odds / 100) + 1 
+                        : (100 / Math.abs(odds)) + 1;
                     
                     // Kelly formula: (bp - q) / b, where b = decimal odds - 1, p = probability, q = 1-p
                     const b = decimal - 1;
@@ -2525,9 +2533,9 @@
                         this._saveToStorage('marketAnalyzer', this.marketAnalyzer.toJSON());
                     }
                     
-                    // Save training data (keep last 1000)
-                    if (this.trainingData.length > 1000) {
-                        this.trainingData = this.trainingData.slice(-1000);
+                    // Save training data (keep last MAX_TRAINING_DATA_SIZE)
+                    if (this.trainingData.length > this.MAX_TRAINING_DATA_SIZE) {
+                        this.trainingData = this.trainingData.slice(-this.MAX_TRAINING_DATA_SIZE);
                     }
                     this._saveToStorage('trainingData', this.trainingData);
                     
@@ -2563,12 +2571,18 @@
 
         // Initialize AI system
         let ai;
+        let initTimeoutHandle;
         
         // Try to initialize advanced AI, fall back to basic if it fails
         (async function initializeAI() {
             try {
                 ai = new AdvancedBettingAI();
                 const success = await ai.initializeAdvancedModules();
+                
+                // Clear the timeout since initialization completed
+                if (initTimeoutHandle) {
+                    clearTimeout(initTimeoutHandle);
+                }
                 
                 if (success) {
                     console.log('🚀 Running with Advanced Multi-Model AI System');
@@ -2577,13 +2591,17 @@
                 }
             } catch (error) {
                 console.warn('Advanced AI initialization failed, using basic Bayesian AI:', error);
+                // Clear timeout to prevent overwriting
+                if (initTimeoutHandle) {
+                    clearTimeout(initTimeoutHandle);
+                }
                 ai = new BettingAI();
             }
         })();
         
         // Fallback: create basic AI if initialization takes too long
-        setTimeout(() => {
-            if (!ai) {
+        initTimeoutHandle = setTimeout(() => {
+            if (!ai || (ai instanceof AdvancedBettingAI && !ai.initializationComplete)) {
                 console.log('⏱️ AI initialization timeout, using basic Bayesian AI');
                 ai = new BettingAI();
             }

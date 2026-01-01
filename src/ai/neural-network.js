@@ -1,6 +1,6 @@
 /**
  * Neural Network Module
- * 3-layer feedforward neural network: 55 → 100 → 50 → 25 → 1
+ * 4-layer feedforward neural network: 55 → 100 → 50 → 25 → 1
  * 
  * Features:
  * - Xavier/Glorot initialization

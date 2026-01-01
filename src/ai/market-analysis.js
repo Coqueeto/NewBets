@@ -342,6 +342,8 @@ class MarketAnalyzer {
         
         for (const team of teams) {
             const teamOdds = oddsData.h2h.filter(o => o.team === team);
+            if (teamOdds.length === 0) continue; // Skip if no odds for this team
+            
             const best = teamOdds.reduce((best, curr) => 
                 curr.odds > best.odds ? curr : best
             );
