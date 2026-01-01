@@ -15,7 +15,8 @@ echo "Enter your Odds API key for local development:"
 read -s API_KEY
 
 # Generate config.js from template
-sed "s/__ODDS_API_KEY__/${API_KEY}/g" config.template.js > config.js
+# Using | as delimiter to avoid issues with / in API keys
+sed "s|__ODDS_API_KEY__|${API_KEY}|g" config.template.js > config.js
 
 echo ""
 echo "✅ config.js created successfully!"

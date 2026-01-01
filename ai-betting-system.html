@@ -879,13 +879,16 @@
     <script>
         // Configuration - Load from secure config file
         // API keys are injected during deployment via GitHub Actions
+        const PLACEHOLDER_KEY = 'REPLACE_WITH_LOCAL_DEV_KEY';
+        const TEMPLATE_PLACEHOLDER = '__ODDS_API_KEY__';
         const ODDS_API_KEYS = window.APP_CONFIG?.ODDS_API_KEYS || [
             // Fallback for local development (use a test key or mock data)
-            { key: 'REPLACE_WITH_LOCAL_DEV_KEY', limit: 500, name: 'Dev', type: 'odds' }
+            { key: PLACEHOLDER_KEY, limit: 500, name: 'Dev', type: 'odds' }
         ];
 
         // Verify API key is loaded
-        if (!ODDS_API_KEYS[0] || ODDS_API_KEYS[0].key.includes('__') || ODDS_API_KEYS[0].key === 'REPLACE_WITH_LOCAL_DEV_KEY') {
+        const currentKey = ODDS_API_KEYS[0]?.key;
+        if (!currentKey || currentKey === PLACEHOLDER_KEY || currentKey === TEMPLATE_PLACEHOLDER) {
             console.warn('⚠️ API key not properly configured. Some features may not work.');
             console.warn('For production: Ensure ODDS_API_KEY is set in GitHub Secrets');
             console.warn('For local dev: Create config.js from config.template.js with your dev key');
