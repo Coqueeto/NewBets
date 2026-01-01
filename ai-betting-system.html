@@ -1558,31 +1558,48 @@
 
         // Load Advanced AI Modules
         const loadAIModules = async () => {
+            const loadedModules = {
+                FeatureExtractor: false,
+                NeuralNetwork: false,
+                EnsembleModel: false,
+                QuantumOptimizer: false,
+                MarketAnalyzer: false
+            };
+            
             try {
                 // Load modules dynamically
                 const moduleScripts = [
-                    'src/ai/features.js',
-                    'src/ai/neural-network.js',
-                    'src/ai/ensemble.js',
-                    'src/ai/quantum-optimizer.js',
-                    'src/ai/market-analysis.js'
+                    { src: 'src/ai/features.js', name: 'FeatureExtractor' },
+                    { src: 'src/ai/neural-network.js', name: 'NeuralNetwork' },
+                    { src: 'src/ai/ensemble.js', name: 'EnsembleModel' },
+                    { src: 'src/ai/quantum-optimizer.js', name: 'QuantumOptimizer' },
+                    { src: 'src/ai/market-analysis.js', name: 'MarketAnalyzer' }
                 ];
                 
-                for (const src of moduleScripts) {
-                    const script = document.createElement('script');
-                    script.src = src;
-                    document.head.appendChild(script);
-                    await new Promise(resolve => {
-                        script.onload = resolve;
-                        script.onerror = () => {
-                            console.warn(`Failed to load ${src}`);
-                            resolve();
-                        };
-                    });
+                for (const module of moduleScripts) {
+                    try {
+                        const script = document.createElement('script');
+                        script.src = module.src;
+                        document.head.appendChild(script);
+                        await new Promise((resolve, reject) => {
+                            script.onload = () => {
+                                loadedModules[module.name] = true;
+                                resolve();
+                            };
+                            script.onerror = () => {
+                                console.warn(`Failed to load ${module.src}`);
+                                reject();
+                            };
+                        });
+                    } catch (err) {
+                        console.warn(`Error loading ${module.src}:`, err);
+                    }
                 }
             } catch (err) {
                 console.warn('Failed to load AI modules:', err);
             }
+            
+            return loadedModules;
         };
 
         // AI Learning Model
@@ -1977,15 +1994,30 @@
             async initializeAdvancedComponents() {
                 try {
                     // Wait for modules to be loaded
-                    await loadAIModules();
+                    const loadedModules = await loadAIModules();
                     
-                    // Check if classes are available
+                    // Check if all required classes are available
+                    const allLoaded = loadedModules.FeatureExtractor && 
+                                     loadedModules.NeuralNetwork && 
+                                     loadedModules.EnsembleModel && 
+                                     loadedModules.QuantumOptimizer &&
+                                     loadedModules.MarketAnalyzer;
+                    
+                    if (!allLoaded) {
+                        const missing = Object.entries(loadedModules)
+                            .filter(([_, loaded]) => !loaded)
+                            .map(([name, _]) => name);
+                        console.warn('Advanced AI modules not fully loaded, using basic mode. Missing:', missing.join(', '));
+                        return;
+                    }
+                    
+                    // Verify classes are actually defined
                     if (typeof FeatureExtractor === 'undefined' || 
                         typeof NeuralNetwork === 'undefined' || 
                         typeof EnsembleModel === 'undefined' || 
                         typeof QuantumOptimizer === 'undefined' ||
                         typeof MarketAnalyzer === 'undefined') {
-                        console.warn('Advanced AI modules not fully loaded, using basic mode');
+                        console.warn('Advanced AI classes not defined, using basic mode');
                         return;
                     }
                     

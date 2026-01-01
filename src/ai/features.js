@@ -87,7 +87,16 @@ class FeatureExtractor {
     const perf = data.teamPerformance[team];
     const games = perf.games || 1;
     const wins = perf.wins || 0;
-    return wins / games;
+    let winRate = wins / games;
+    
+    // Apply location-specific adjustment
+    if (location === 'home') {
+      winRate *= 1.1; // Home teams typically perform 10% better
+    } else if (location === 'away') {
+      winRate *= 0.9; // Away teams typically perform 10% worse
+    }
+    
+    return Math.max(0, Math.min(1, winRate)); // Clamp to [0, 1]
   }
 
   getWinStreak(team, data) {
