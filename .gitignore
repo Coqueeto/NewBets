@@ -1,0 +1,27 @@
+# Temporary files
+/tmp/
+*.tmp
+*.temp
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Build artifacts
+dist/
+build/
+*.min.js
+*.min.css
+
+# Dependencies
+node_modules/
+package-lock.json
