@@ -1,330 +1,319 @@
-/**
- * Quantum-Inspired Optimizer Module
- * Uses quantum-inspired algorithms for hyperparameter optimization
- * 
- * Features:
- * - Normalized quantum states (α²+β²=1)
- * - Quantum rotation gates
- * - Quantum tunneling for escaping local optima
- * - Convergence detection with early stopping
- * - Hyperparameter tuning wrapper
- */
+// Quantum-Inspired Optimization Algorithm (async, reproducible, evaluative)
+// Improved implementation: deterministic seeded RNG, per-dimension quantum state,
+// async-friendly training/evaluation, progress callbacks, and non-blocking behavior.
 
 class QuantumOptimizer {
-    constructor(options = {}) {
-        this.populationSize = options.populationSize || 20;
-        this.maxIterations = options.maxIterations || 100;
-        this.convergenceThreshold = options.convergenceThreshold || 1e-6;
-        this.tunnelingProbability = options.tunnelingProbability || 0.1;
-        this.rotationAngle = options.rotationAngle || 0.05 * Math.PI;
-        
-        // Convergence tracking
-        this.bestFitness = -Infinity;
-        this.bestParams = null;
-        this.fitnessHistory = [];
-        this.convergenceCounter = 0;
-        this.patience = 10;
-    }
+  constructor({ populationSize = 30, maxIterations = 50, seed = 2463534242 } = {}) {
+    this.populationSize = populationSize;
+    this.maxIterations = maxIterations;
+    this.seed = seed >>> 0;
 
-    /**
-     * Quantum state representation using single angle θ
-     * Ensures normalization: α² + β² = 1
-     * α = cos(θ), β = sin(θ)
-     */
-    _createQuantumState(theta) {
-        return {
-            theta: theta,
-            alpha: Math.cos(theta),
-            beta: Math.sin(theta)
-        };
-    }
+    this.population = [];
+    this.bestSolution = null;
+    this.bestFitness = -Infinity;
+    this.history = [];
+  }
 
-    /**
-     * Initialize quantum population
-     * Each individual represents a set of hyperparameters
-     */
-    _initializePopulation(paramRanges) {
-        const population = [];
-        
-        for (let i = 0; i < this.populationSize; i++) {
-            const individual = {
-                quantumStates: [],
-                params: {},
-                fitness: -Infinity
-            };
-            
-            // Create quantum state for each parameter
-            for (const [param, range] of Object.entries(paramRanges)) {
-                const theta = Math.random() * Math.PI / 2; // 0 to π/2
-                individual.quantumStates.push(this._createQuantumState(theta));
-                
-                // Decode to actual parameter value
-                individual.params[param] = this._decodeParameter(theta, range);
-            }
-            
-            population.push(individual);
-        }
-        
-        return population;
-    }
+  // xorshift32 RNG wrapped for convenience and determinism
+  seededRng(seed = this.seed) {
+    let x = seed >>> 0;
+    return {
+      // returns float in [0,1)
+      random() {
+        x ^= (x << 13) >>> 0;
+        x ^= x >>> 17;
+        x ^= (x << 5) >>> 0;
+        return (x >>> 0) / 0x100000000; // divide by 2^32
+      },
+      // integer in [0, n)
+      int(n) {
+        return Math.floor(this.random() * n);
+      },
+      // advance the RNG state by n steps (useful for reproducibility in parallel evaluations)
+      advance(steps = 1) {
+        for (let i = 0; i < steps; i++) this.random();
+      }
+    };
+  }
 
-    /**
-     * Decode quantum state to parameter value
-     */
-    _decodeParameter(theta, range) {
-        const { min, max, type } = range;
-        
-        // Use probability amplitude to map to parameter range
-        const prob = Math.cos(theta) * Math.cos(theta); // |α|²
-        let value = min + prob * (max - min);
-        
-        if (type === 'int') {
-            value = Math.round(value);
-        } else if (type === 'log') {
-            // Logarithmic scale for learning rates, etc.
-            value = Math.exp(Math.log(min) + prob * (Math.log(max) - Math.log(min)));
-        }
-        
-        return value;
+  // Map position vector (values in [0,1]) to hyperparameter object using bounds
+  // hyperparamRanges: { name: [min,max] }
+  // If min/max are integers, values will be rounded to integers.
+  mapPositionToParams(position, keys, bounds) {
+    const params = {};
+    for (let i = 0; i < keys.length; i++) {
+      const [min, max] = bounds[i];
+      const raw = min + position[i] * (max - min);
+      // If both min and max are integers, treat param as integer
+      if (Number.isInteger(min) && Number.isInteger(max)) {
+        params[keys[i]] = Math.round(raw);
+      } else {
+        params[keys[i]] = raw;
+      }
     }
+    return params;
+  }
 
-    /**
-     * Apply quantum rotation gate
-     * Rotates quantum state by rotation angle
-     */
-    _quantumRotate(theta, direction) {
-        // direction: 1 for increase, -1 for decrease
-        const delta = direction * this.rotationAngle;
-        let newTheta = theta + delta;
-        
-        // Keep theta in valid range [0, π/2]
-        newTheta = Math.max(0, Math.min(Math.PI / 2, newTheta));
-        
-        return newTheta;
+  // Initialize population with positions in [0,1] and per-dimension quantum angles (theta)
+  initializePopulation(dimension, rng) {
+    this.population = [];
+    for (let i = 0; i < this.populationSize; i++) {
+      const position = new Array(dimension);
+      const theta = new Array(dimension);
+      for (let d = 0; d < dimension; d++) {
+        position[d] = rng.random();
+        theta[d] = rng.random() * Math.PI * 2; // full circle
+      }
+      this.population.push({ position, theta, fitness: -Infinity });
     }
+    this.bestSolution = null;
+    this.bestFitness = -Infinity;
+    this.history = [];
+  }
 
-    /**
-     * Quantum tunneling - escape local optima
-     * Randomly jump to a different state with small probability
-     */
-    _quantumTunnel(theta) {
-        if (Math.random() < this.tunnelingProbability) {
-            // Large quantum jump
-            return Math.random() * Math.PI / 2;
-        }
-        return theta;
+  // Convert theta to normalized q-state (alpha,beta) that satisfy alpha^2 + beta^2 = 1
+  thetaToQstate(theta) {
+    return { alpha: Math.cos(theta), beta: Math.sin(theta) };
+  }
+
+  // Quantum rotate per-dimension -- deterministic with provided rng
+  quantumRotate(individual, globalBestPosition, iter, maxIter, rng) {
+    const progressFactor = iter / Math.max(1, maxIter - 1); // grows with iterations
+    const baseStep = 0.5 * (1 - progressFactor) + 0.05; // decreasing exploration
+
+    for (let d = 0; d < individual.position.length; d++) {
+      // direction deterministic: toward global best if exists, otherwise random
+      let direction = 0;
+      if (globalBestPosition) {
+        const diff = globalBestPosition[d] - individual.position[d];
+        direction = diff === 0 ? (rng.random() < 0.5 ? -1 : 1) : Math.sign(diff);
+      } else {
+        direction = rng.random() < 0.5 ? -1 : 1;
+      }
+
+      // Controlled rotation magnitude
+      const step = baseStep * (0.3 + rng.random() * 0.7);
+      individual.theta[d] += direction * step;
+
+      // normalize theta into [0, 2PI)
+      individual.theta[d] = ((individual.theta[d] % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+
+      // Collapse to position using cos^2(theta) mapping -> probability-like
+      const q = this.thetaToQstate(individual.theta[d]);
+      const prob = Math.min(1, Math.max(0, q.alpha * q.alpha));
+
+      if (globalBestPosition) {
+        // move position towards best based on prob scaled by progress
+        individual.position[d] = individual.position[d] * (1 - prob) + globalBestPosition[d] * prob;
+      } else {
+        // small deterministic perturbation
+        const perturb = (rng.random() - 0.5) * 0.02;
+        individual.position[d] = Math.min(1, Math.max(0, individual.position[d] + perturb));
+      }
     }
+  }
 
-    /**
-     * Update population based on fitness
-     */
-    _updatePopulation(population, bestIndividual, paramRanges) {
-        const paramNames = Object.keys(paramRanges);
-        
-        for (const individual of population) {
-            for (let i = 0; i < individual.quantumStates.length; i++) {
-                const paramName = paramNames[i];
-                const currentTheta = individual.quantumStates[i].theta;
-                const bestValue = bestIndividual.params[paramName];
-                const currentValue = individual.params[paramName];
-                
-                // Determine rotation direction
-                let direction = 0;
-                if (bestValue > currentValue) {
-                    direction = 1; // Rotate towards higher values
-                } else if (bestValue < currentValue) {
-                    direction = -1; // Rotate towards lower values
-                }
-                
-                // Apply quantum rotation
-                let newTheta = this._quantumRotate(currentTheta, direction);
-                
-                // Apply quantum tunneling
-                newTheta = this._quantumTunnel(newTheta);
-                
-                // Update quantum state
-                individual.quantumStates[i] = this._createQuantumState(newTheta);
-                
-                // Update parameter value
-                individual.params[paramName] = this._decodeParameter(newTheta, paramRanges[paramName]);
-            }
-        }
+  // Quantum tunneling to escape local optima (deterministic via rng)
+  quantumTunnel(individual, rng, tunnelProbability = 0.02) {
+    if (rng.random() < tunnelProbability) {
+      const dim = rng.int(individual.position.length);
+      individual.position[dim] = Math.min(1, Math.max(0, individual.position[dim] + (rng.random() - 0.5) * 0.2));
+      individual.theta[dim] = (individual.theta[dim] + rng.random() * (Math.PI / 2)) % (Math.PI * 2);
     }
+  }
 
-    /**
-     * Check convergence
-     */
-    _checkConvergence() {
-        if (this.fitnessHistory.length < 2) return false;
-        
-        const recentFitness = this.fitnessHistory.slice(-5);
-        const variance = this._calculateVariance(recentFitness);
-        
-        if (variance < this.convergenceThreshold) {
-            this.convergenceCounter++;
+  // Async-friendly training wrapper that supports sync or Promise-based model.train
+  // Accepts inputs (array of features) and targets (array of arrays/values)
+  async trainModelAsync(model, inputs, targets, epochs = 3, yieldEvery = 1) {
+    // If model.train returns a Promise, await it directly
+    if (typeof model.train === 'function') {
+      try {
+        const ret = model.train(inputs, targets, epochs);
+        if (ret && typeof ret.then === 'function') {
+          await ret;
         } else {
-            this.convergenceCounter = 0;
-        }
-        
-        return this.convergenceCounter >= this.patience;
-    }
-
-    /**
-     * Calculate variance
-     */
-    _calculateVariance(values) {
-        if (values.length === 0) return 0;
-        const mean = values.reduce((a, b) => a + b, 0) / values.length;
-        const squaredDiffs = values.map(v => Math.pow(v - mean, 2));
-        return squaredDiffs.reduce((a, b) => a + b, 0) / values.length;
-    }
-
-    /**
-     * Optimize hyperparameters
-     * @param {Function} objectiveFunction - Function to maximize (returns fitness score)
-     * @param {Object} paramRanges - Parameter ranges to optimize
-     * @returns {Object} - Best parameters found
-     */
-    optimize(objectiveFunction, paramRanges) {
-        // Initialize population
-        let population = this._initializePopulation(paramRanges);
-        
-        // Evaluate initial population
-        for (const individual of population) {
-            individual.fitness = objectiveFunction(individual.params);
-        }
-        
-        // Find initial best
-        let bestIndividual = population.reduce((best, ind) => 
-            ind.fitness > best.fitness ? ind : best
-        );
-        
-        this.bestFitness = bestIndividual.fitness;
-        this.bestParams = { ...bestIndividual.params };
-        this.fitnessHistory.push(this.bestFitness);
-        
-        // Optimization loop
-        for (let iteration = 0; iteration < this.maxIterations; iteration++) {
-            // Update population based on best individual
-            this._updatePopulation(population, bestIndividual, paramRanges);
-            
-            // Evaluate new population
-            for (const individual of population) {
-                individual.fitness = objectiveFunction(individual.params);
-                
-                // Update global best
-                if (individual.fitness > this.bestFitness) {
-                    this.bestFitness = individual.fitness;
-                    this.bestParams = { ...individual.params };
-                    bestIndividual = individual;
-                }
-            }
-            
-            this.fitnessHistory.push(this.bestFitness);
-            
-            // Check convergence
-            if (this._checkConvergence()) {
-                console.log(`Converged at iteration ${iteration + 1}`);
-                break;
-            }
-            
-            // Log progress every 10 iterations
-            if ((iteration + 1) % 10 === 0) {
-                console.log(`Iteration ${iteration + 1}: Best Fitness = ${this.bestFitness.toFixed(6)}`);
-            }
-        }
-        
-        return {
-            params: this.bestParams,
-            fitness: this.bestFitness,
-            iterations: this.fitnessHistory.length,
-            history: this.fitnessHistory
-        };
-    }
-
-    /**
-     * Optimize neural network hyperparameters
-     */
-    optimizeNeuralNetwork(neuralNetwork, trainData, trainTargets, validData, validTargets) {
-        // Define parameter ranges for neural network
-        const paramRanges = {
-            learningRate: { min: 0.0001, max: 0.01, type: 'log' },
-            momentum: { min: 0.5, max: 0.99, type: 'float' },
-            l2Lambda: { min: 0.00001, max: 0.001, type: 'log' },
-            dropoutRate: { min: 0.0, max: 0.5, type: 'float' }
-        };
-        
-        // Objective function: validation accuracy
-        const objectiveFunction = (params) => {
-            // Create a copy of neural network with new hyperparameters
-            const nn = NeuralNetwork.fromJSON(neuralNetwork.toJSON());
-            nn.learningRate = params.learningRate;
-            nn.momentum = params.momentum;
-            nn.l2Lambda = params.l2Lambda;
-            nn.dropoutRate = params.dropoutRate;
-            
-            // Train on subset (quick evaluation)
-            const subsetSize = Math.min(100, trainData.length);
-            const trainSubset = trainData.slice(0, subsetSize);
-            const targetSubset = trainTargets.slice(0, subsetSize);
-            
+          // assume synchronous; break into single-epoch steps to yield
+          for (let e = 0; e < epochs; e++) {
             try {
-                nn.train(trainSubset, targetSubset, {
-                    epochs: 10,
-                    batchSize: 16,
-                    verbose: false
-                });
-                
-                // Evaluate on validation set
-                let correct = 0;
-                for (let i = 0; i < validData.length; i++) {
-                    const prediction = nn.predict(validData[i]);
-                    const predictedClass = prediction > 0.5 ? 1 : 0;
-                    if (predictedClass === validTargets[i]) {
-                        correct++;
-                    }
-                }
-                
-                return correct / validData.length;
-            } catch (error) {
-                console.warn('Neural network training error:', error);
-                return 0; // Return 0 fitness on error
+              model.train(inputs, targets, 1);
+            } catch (err) {
+              // if single-epoch call fails, try calling without epoch argument
+              try { model.train(inputs, targets); } catch (err2) { break; }
             }
-        };
-        
-        // Run optimization
-        return this.optimize(objectiveFunction, paramRanges);
+            if ((e + 1) % yieldEvery === 0) await new Promise(r => setTimeout(r, 0));
+          }
+        }
+      } catch (err) {
+        // training failed, don't throw — just return so tuning can continue
+        console.warn('QuantumOptimizer.trainModelAsync: training failed', err);
+      }
+    } else if (typeof model.fit === 'function') {
+      // some libraries use fit which may accept epochs
+      try {
+        const ret = model.fit(inputs, targets, { epochs });
+        if (ret && typeof ret.then === 'function') await ret;
+      } catch (err) {
+        console.warn('QuantumOptimizer.trainModelAsync: model.fit failed', err);
+      }
+    } else {
+      // No training API detectable; just yield once to avoid blocking
+      await new Promise(r => setTimeout(r, 0));
+    }
+  }
+
+  // Evaluate model on validation set (supports async or sync predict)
+  // Returns fitness (accuracy by default). validationSet: [{features,label},...]
+  async evaluateModelAsync(model, validationSet, yieldEvery = 64) {
+    let correct = 0;
+    for (let i = 0; i < validationSet.length; i++) {
+      const input = validationSet[i].features;
+      const label = validationSet[i].label;
+      try {
+        const pred = model.predict ? model.predict(input) : (typeof model.forward === 'function' ? model.forward(input) : null);
+        const resolved = (pred && typeof pred.then === 'function') ? await pred : pred;
+        const predVal = Array.isArray(resolved) ? resolved[0] : resolved;
+        const predictedLabel = predVal >= 0.5 ? 1 : 0;
+        if (predictedLabel === label) correct++;
+      } catch (err) {
+        // prediction failed for this sample; treat as incorrect
+      }
+
+      if ((i + 1) % yieldEvery === 0) await new Promise(r => setTimeout(r, 0));
+    }
+    return validationSet.length > 0 ? correct / validationSet.length : 0;
+  }
+
+  // Main async tuning entrypoint
+  // modelFactory: () => new Model() - must produce a fresh model instance (same architecture)
+  // trainingSet / validationSet: arrays of {features, label}
+  // hyperparamRanges: { paramName: [min,max], ... }
+  // options: { epochsPerCandidate, maxIterations, populationSize, seed, onProgress, yieldEvery, tunnelProbability }
+  async tuneHyperparametersAsync(modelFactory, trainingSet, validationSet, hyperparamRanges, options = {}) {
+    const epochsPerCandidate = options.epochsPerCandidate || 3;
+    const maxIter = options.maxIterations || this.maxIterations;
+    const popSize = options.populationSize || this.populationSize;
+    const seed = (options.seed != null) ? (options.seed >>> 0) : this.seed;
+    const onProgress = typeof options.onProgress === 'function' ? options.onProgress : () => {};
+    const yieldEvery = options.yieldEvery || 1; // yield from training every N epochs
+    const evalYieldEvery = options.evalYieldEvery || 64; // yield during evaluation
+    const tunnelProb = (typeof options.tunnelProbability === 'number') ? options.tunnelProbability : 0.02;
+
+    // Prepare RNG and bounds
+    const masterRng = this.seededRng(seed);
+    const keys = Object.keys(hyperparamRanges);
+    const bounds = keys.map(k => hyperparamRanges[k]);
+    const dim = keys.length;
+
+    // Initialize population
+    this.populationSize = popSize;
+    this.maxIterations = maxIter;
+    this.initializePopulation(dim, masterRng);
+
+    // Helper to create deterministic per-individual RNG from master (advance a consistent number of steps)
+    const createIndividualRng = (index) => {
+      // Clone the master seed but advance by index steps deterministically
+      // We'll generate a seed integer by running masterRng a few times
+      const forkSeedRng = this.seededRng(seed);
+      // Advance and mix to produce a new 32-bit seed based on index
+      let s = 2166136261 >>> 0;
+      // incorporate index and some master randomness
+      s = (s ^ index) >>> 0;
+      for (let i = 0; i < 8; i++) s = (s ^ Math.floor(forkSeedRng.random() * 0xFFFFFFFF)) >>> 0;
+      return this.seededRng(s);
+    };
+
+    // Evaluate initial population and iterate
+    for (let iter = 0; iter < maxIter; iter++) {
+      // Evaluate each individual sequentially (deterministic ordering)
+      for (let i = 0; i < this.population.length; i++) {
+        const individual = this.population[i];
+        const individualRng = createIndividualRng(i + iter * this.population.length);
+
+        // Map to hyperparams
+        const params = this.mapPositionToParams(individual.position, keys, bounds);
+
+        // Create fresh model instance
+        const model = modelFactory();
+
+        // Prefer setParams if available, otherwise assign properties
+        if (typeof model.setParams === 'function') {
+          try { model.setParams(params); } catch (err) { /* fallback to assigning properties */ }
+        } else {
+          for (const k of keys) {
+            try {
+              // Allow nested assignment if model expects different names
+              model[k] = params[k];
+            } catch (err) { /* ignore */ }
+          }
+        }
+
+        // Prepare inputs/targets format expected by model.train
+        const inputs = trainingSet.map(d => d.features);
+        const targets = trainingSet.map(d => [d.label]);
+
+        // Train briefly (async-friendly)
+        await this.trainModelAsync(model, inputs, targets, epochsPerCandidate, yieldEvery);
+
+        // Evaluate on validation set
+        const fitness = await this.evaluateModelAsync(model, validationSet, evalYieldEvery);
+        individual.fitness = fitness;
+
+        // Track best
+        if (fitness > this.bestFitness) {
+          this.bestFitness = fitness;
+          this.bestSolution = {
+            position: individual.position.slice(),
+            params: this.mapPositionToParams(individual.position, keys, bounds)
+          };
+        }
+
+        // Non-blocking: yield occasionally between candidates
+        if ((i + 1) % Math.max(1, Math.floor(this.populationSize / 4)) === 0) await new Promise(r => setTimeout(r, 0));
+      }
+
+      // Record iteration stats
+      const avgFitness = this.population.reduce((s, ind) => s + (ind.fitness || 0), 0) / Math.max(1, this.population.length);
+      this.history.push({ iteration: iter, bestFitness: this.bestFitness, avgFitness });
+
+      // Progress callback (safe call)
+      try {
+        onProgress({ iteration: iter, bestFitness: this.bestFitness, bestParams: this.bestSolution ? this.bestSolution.params : null, avgFitness, population: this.population.map(p => ({ position: p.position.slice(), fitness: p.fitness })) });
+      } catch (err) {
+        // swallow errors from callback
+        console.warn('QuantumOptimizer.onProgress threw', err);
+      }
+
+      // Apply quantum operators: rotate towards best and allow tunneling
+      const globalBestPos = this.bestSolution ? this.bestSolution.position : null;
+      for (let i = 0; i < this.population.length; i++) {
+        const ind = this.population[i];
+        const indRng = createIndividualRng(i + iter * this.population.length + 12345);
+        this.quantumRotate(ind, globalBestPos, iter, maxIter, indRng);
+        this.quantumTunnel(ind, indRng, tunnelProb);
+      }
+
+      // Simple convergence check: if recent best didn't improve
+      if (this.history.length > 8) {
+        const recent = this.history.slice(-8).map(h => h.bestFitness);
+        const improvement = Math.max(...recent) - Math.min(...recent);
+        if (improvement < 1e-9) break;
+      }
+
+      // yield to avoid blocking long loops
+      await new Promise(r => setTimeout(r, 0));
     }
 
-    /**
-     * Serialize optimizer state to JSON
-     */
-    toJSON() {
-        return {
-            bestFitness: this.bestFitness,
-            bestParams: this.bestParams,
-            fitnessHistory: this.fitnessHistory
-        };
-    }
-
-    /**
-     * Deserialize optimizer state from JSON
-     */
-    static fromJSON(json) {
-        const optimizer = new QuantumOptimizer();
-        optimizer.bestFitness = json.bestFitness || -Infinity;
-        optimizer.bestParams = json.bestParams || null;
-        optimizer.fitnessHistory = json.fitnessHistory || [];
-        return optimizer;
-    }
+    return {
+      solution: this.bestSolution ? this.bestSolution.params : null,
+      fitness: this.bestFitness,
+      history: this.history
+    };
+  }
 }
 
-// Export for use in other modules
+// Export for Node/CommonJS and browser usage
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = QuantumOptimizer;
-}
-
-// Make available globally for browser use
-if (typeof window !== 'undefined') {
-    window.QuantumOptimizer = QuantumOptimizer;
+  module.exports = QuantumOptimizer;
+} else if (typeof window !== 'undefined') {
+  window.QuantumOptimizer = QuantumOptimizer;
 }
